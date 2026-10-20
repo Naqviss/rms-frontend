@@ -1,4 +1,4 @@
-import type { SalesChannel, SalesPoint, TaxRate, Transaction } from '@/types'
+import type { ExpenseBudget, RecurringExpense, SalesChannel, SalesPoint, TaxRate, Transaction } from '@/types'
 import { config } from '@/lib/config'
 import { createRng, int, isoDaysAgo, pick } from '@/lib/utils/seed'
 
@@ -193,4 +193,30 @@ export const taxRates: TaxRate[] = [
   { id: 'tx4', name: 'Beverage Tax', rate: 8, category: 'Beverages', inclusive: true, branchId: 'all', active: true, appliesTo: 'Beverages' },
   { id: 'tx5', name: 'Card Payment Levy', rate: 5, category: 'Payments', inclusive: false, branchId: 'all', active: true, appliesTo: 'Card payments' },
   { id: 'tx6', name: 'Delivery Service Tax', rate: 16, category: 'Delivery', inclusive: false, branchId: 'b2', active: true, appliesTo: 'Delivery orders' },
+]
+
+export const recurringExpenses: RecurringExpense[] = [
+  { id: 'rec1', name: 'Shop rent', category: 'Rent', payee: 'Clifton Properties', amount: 320000, frequency: 'monthly', nextDue: '2026-11-01', branchId: 'b1', method: 'online', active: true },
+  { id: 'rec2', name: 'Shop rent', category: 'Rent', payee: 'DHA Estates', amount: 240000, frequency: 'monthly', nextDue: '2026-11-01', branchId: 'b2', method: 'online', active: true },
+  { id: 'rec3', name: 'Shop rent', category: 'Rent', payee: 'Gulshan Plaza Mgmt', amount: 180000, frequency: 'monthly', nextDue: '2026-11-01', branchId: 'b3', method: 'online', active: true },
+  { id: 'rec4', name: 'Electricity bill', category: 'Utilities', payee: 'K-Electric', amount: 95000, frequency: 'monthly', nextDue: '2026-10-18', branchId: 'b1', method: 'online', active: true },
+  { id: 'rec5', name: 'Gas bill', category: 'Utilities', payee: 'SSGC', amount: 38000, frequency: 'monthly', nextDue: '2026-10-20', branchId: 'b1', method: 'online', active: true },
+  { id: 'rec6', name: 'Internet & POS licences', category: 'Utilities', payee: 'Nayatel', amount: 12000, frequency: 'monthly', nextDue: '2026-10-13', branchId: 'b2', method: 'card', active: true },
+  { id: 'rec7', name: 'Cleaning supplies', category: 'Supplies', payee: 'Metro Cash & Carry', amount: 8000, frequency: 'weekly', nextDue: '2026-10-17', branchId: 'b1', method: 'cash', active: true },
+  { id: 'rec8', name: 'Social media ads', category: 'Marketing', payee: 'Meta Ads', amount: 40000, frequency: 'monthly', nextDue: '2026-10-16', branchId: 'b1', method: 'card', active: true },
+  { id: 'rec9', name: 'Pest control', category: 'Maintenance', payee: 'SafeHome Services', amount: 15000, frequency: 'quarterly', nextDue: '2026-11-10', branchId: 'b2', method: 'cash', active: true },
+  { id: 'rec10', name: 'Background music licence', category: 'Other', payee: 'Soundtrack Biz', amount: 9000, frequency: 'quarterly', nextDue: '2026-12-01', branchId: 'b1', method: 'card', active: false },
+]
+
+export const expenseBudgets: ExpenseBudget[] = [
+  { id: 'bud-salaries', category: 'Salaries', monthly: 1600000 },
+  { id: 'bud-rent', category: 'Rent', monthly: 760000 },
+  { id: 'bud-ingredients', category: 'Ingredients', monthly: 900000 },
+  { id: 'bud-commission', category: 'Platform commission', monthly: 450000 },
+  { id: 'bud-utilities', category: 'Utilities', monthly: 250000 },
+  { id: 'bud-vendor', category: 'Vendor payment', monthly: 300000 },
+  { id: 'bud-riders', category: 'Rider payouts', monthly: 120000 },
+  { id: 'bud-marketing', category: 'Marketing', monthly: 90000 },
+  { id: 'bud-supplies', category: 'Supplies', monthly: 80000 },
+  { id: 'bud-maintenance', category: 'Maintenance', monthly: 60000 },
 ]

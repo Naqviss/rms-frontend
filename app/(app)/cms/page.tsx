@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckIcon, ExternalLinkIcon, LayoutTemplateIcon, PaletteIcon, SearchIcon, SlidersHorizontalIcon, TypeIcon } from 'lucide-react'
+import { useState } from 'react'
+import { CheckIcon, ExternalLinkIcon, EyeIcon, LayoutTemplateIcon, PaletteIcon, SearchIcon, SlidersHorizontalIcon, TypeIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +14,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PageHeader } from '@/components/common/page-header'
 import { ScaledFrame, SiteView } from '@/components/cms/site-view'
-import { accentChoices, sampleMenu, siteTemplates, templateById } from '@/lib/cms/templates'
+import { TemplatePreviewDialog } from '@/components/cms/template-preview-dialog'
+import { accentChoices, sampleMenu, siteTemplates, templateById, type SiteTemplate } from '@/lib/cms/templates'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { useSiteStore, type SiteContent, type SiteSections } from '@/stores/site-store'
@@ -22,6 +24,7 @@ export default function CmsPage() {
   const { t } = useT()
   const { templateId, accent, content, sections, setTemplate, setAccent, setContent, setSections } = useSiteStore()
   const template = templateById(templateId)
+  const [previewing, setPreviewing] = useState<SiteTemplate | null>(null)
   const set = (k: keyof SiteContent) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setContent({ [k]: e.target.value })
   const save = () => toast.success(t('common.saved'))
 
@@ -100,40 +103,59 @@ export default function CmsPage() {
               {siteTemplates.map((tpl) => {
                 const active = tpl.id === templateId
                 return (
-                  <li key={tpl.id}>
+                  <li
+                    key={tpl.id}
+                    className={cn(
+                      'group relative overflow-hidden rounded-xl border bg-card transition-all hover:-translate-y-0.5 hover:shadow-md',
+                      active && 'border-primary ring-2 ring-primary',
+                    )}
+                  >
                     <button
                       type="button"
-                      onClick={() => {
-                        setTemplate(tpl.id)
-                        toast.success(`${tpl.name} applied`)
-                      }}
-                      aria-pressed={active}
-                      className={cn(
-                        'group relative block w-full overflow-hidden rounded-xl border bg-card text-left transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                        active && 'border-primary ring-2 ring-primary',
-                      )}
+                      onClick={() => setPreviewing(tpl)}
+                      aria-label={`Preview ${tpl.name}`}
+                      className="relative block w-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
                     >
                       <ScaledFrame height={640}>
                         <SiteView template={tpl} accent={active ? accent : null} content={content} sections={sections} items={sampleMenu} />
                       </ScaledFrame>
-                      <div className="flex items-center justify-between gap-2 border-t p-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{tpl.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{tpl.cuisine}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1" aria-hidden>
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/35 group-hover:opacity-100 group-focus-within:bg-black/35 group-focus-within:opacity-100">
+                        <span className="flex items-center gap-1.5 rounded-full bg-background px-3.5 py-1.5 text-sm font-medium text-foreground shadow">
+                          <EyeIcon className="size-4" aria-hidden />
+                          Full preview
+                        </span>
+                      </span>
+                    </button>
+                    <div className="flex items-center justify-between gap-2 border-t p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{tpl.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{tpl.cuisine}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <div className="flex items-center gap-1" aria-hidden>
                           {[tpl.colors.bg, tpl.colors.accent, tpl.colors.text].map((col) => (
                             <span key={col} className="size-4 rounded-full border" style={{ background: col }} />
                           ))}
                         </div>
+                        <Button
+                          size="sm"
+                          variant={active ? 'secondary' : 'outline'}
+                          disabled={active}
+                          onClick={() => {
+                            setTemplate(tpl.id)
+                            toast.success(`${tpl.name} applied`)
+                          }}
+                        >
+                          {active ? 'Applied' : 'Use'}
+                        </Button>
                       </div>
-                      {active && (
-                        <span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-                          <CheckIcon className="size-4" aria-hidden />
-                          <span className="sr-only">Selected</span>
-                        </span>
-                      )}
-                    </button>
+                    </div>
+                    {active && (
+                      <span className="pointer-events-none absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                        <CheckIcon className="size-4" aria-hidden />
+                        <span className="sr-only">Selected</span>
+                      </span>
+                    )}
                   </li>
                 )
               })}
@@ -252,6 +274,15 @@ export default function CmsPage() {
           </CardContent>
         </Card>
       </div>
+      <TemplatePreviewDialog
+        template={previewing}
+        activeId={templateId}
+        accent={accent}
+        content={content}
+        onOpenChange={(o) => !o && setPreviewing(null)}
+        onNavigate={setPreviewing}
+        onApply={(tpl) => setTemplate(tpl.id)}
+      />
     </>
   )
 }

@@ -316,6 +316,61 @@ export interface Transaction extends Entity {
   branchId: ID
   status: 'completed' | 'pending'
   channel?: SalesChannel
+  /** Who was paid (vendor, landlord, utility company...). */
+  payee?: string
+  /** Set when the expense was recorded from a recurring schedule. */
+  recurringId?: ID
+}
+
+export type RecurringFrequency = 'weekly' | 'monthly' | 'quarterly'
+
+export interface RecurringExpense extends Entity {
+  name: string
+  category: string
+  payee: string
+  amount: number
+  frequency: RecurringFrequency
+  /** Date (YYYY-MM-DD) the next bill falls due. */
+  nextDue: string
+  branchId: ID
+  method: PaymentMethod
+  active: boolean
+}
+
+export interface ExpenseBudget extends Entity {
+  category: string
+  /** Monthly limit across all branches. */
+  monthly: number
+}
+
+/** One ingredient used to make a single serving of a menu item. */
+export interface RecipeIngredient {
+  id: ID
+  /** Inventory SKU; when set the cost follows the current stock price. */
+  sku: string | null
+  name: string
+  quantity: number
+  unit: string
+  /** Price per `unit` for ingredients that are not tracked in inventory. */
+  costPerUnit: number
+}
+
+/** A non-ingredient cost spent on every serving: packaging, gas, labour minutes and so on. */
+export interface RecipeExtra {
+  id: ID
+  label: string
+  amount: number
+}
+
+/** Costing sheet for one menu item. The record id equals the product id. */
+export interface Recipe extends Entity {
+  productId: ID
+  ingredients: RecipeIngredient[]
+  extras: RecipeExtra[]
+  /** Buffer for trimming, spillage and spoilage, as a percentage of ingredient cost. */
+  wastagePct: number
+  notes: string
+  updatedAt: string
 }
 
 export interface TaxRate extends Entity {

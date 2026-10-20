@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import {
   BellIcon,
@@ -36,6 +37,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppStore } from '@/stores/app-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { useT } from '@/lib/i18n/use-t'
 import { languageMeta } from '@/lib/i18n/dictionary'
 import { currentTenantBranches } from '@/mocks/branches'
@@ -166,6 +168,8 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
   const { theme, setTheme } = useTheme()
   const role = useAppStore((s) => s.role)
   const setRole = useAppStore((s) => s.setRole)
+  const logout = useAuthStore((s) => s.logout)
+  const router = useRouter()
   const user = appUsers[0]
 
   return (
@@ -225,7 +229,13 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" render={<Link href="/login" />}>
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={() => {
+            logout()
+            router.replace('/login')
+          }}
+        >
           <LogOutIcon /> {t('shell.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -97,6 +97,11 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
           </span>
         )}
       </header>
+      <nav className="flex gap-5 overflow-x-auto px-6 pb-3 text-sm @2xl:hidden" style={{ color: c.muted }} aria-label="Site">
+        <a href="#menu">Menu</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
 
       {template.hero === 'centered' && (
         <section className="flex flex-col gap-10 px-6 pt-10 pb-12 @3xl:px-12">
