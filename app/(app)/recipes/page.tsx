@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import type { ColumnDef } from '@tanstack/react-table'
-import { BookOpenCheckIcon, ClockIcon, EyeIcon, EyeOffIcon, LockKeyholeIcon, LockKeyholeOpenIcon, SearchIcon, SettingsIcon, ShieldAlertIcon, ShieldCheckIcon } from 'lucide-react'
+import { BookOpenCheckIcon, ClockIcon, EyeIcon, EyeOffIcon, LockKeyholeIcon, LockKeyholeOpenIcon, PlusIcon, SearchIcon, SettingsIcon, ShieldAlertIcon, ShieldCheckIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -63,6 +64,8 @@ export default function RecipeBookPage() {
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [unlockOpen, setUnlockOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addQuery, setAddQuery] = useState('')
   const [welcomeDone, setWelcomeDone] = useState(false)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'all' | RecipeStatus>('all')
@@ -241,6 +244,10 @@ export default function RecipeBookPage() {
                 <SettingsIcon data-icon="inline-start" />
                 Vault settings
               </Button>
+              <Button onClick={() => setAddOpen(true)}>
+                <PlusIcon data-icon="inline-start" />
+                Add recipe
+              </Button>
             </>
           )
         }
@@ -378,6 +385,12 @@ export default function RecipeBookPage() {
                                 )}
                               </div>
                               {isOwner && st === 'complete' && <p className="text-[11px] text-muted-foreground">{visibilityLabel[r?.visibility ?? 'owner']}</p>}
+                              {isOwner && st !== 'complete' && (
+                                <span className="flex items-center gap-1 text-xs font-medium text-primary">
+                                  <PlusIcon className="size-3.5" aria-hidden />
+                                  Add recipe
+                                </span>
+                              )}
                             </CardContent>
                           </button>
                         </Card>
@@ -438,6 +451,58 @@ export default function RecipeBookPage() {
         }}
       />
       <VaultSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      <Dialog
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o)
+          if (!o) setAddQuery('')
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a recipe</DialogTitle>
+            <DialogDescription>Pick the menu item to write a recipe for. Items that already have a full recipe are not listed.</DialogDescription>
+          </DialogHeader>
+          <InputGroup className="h-9">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput autoFocus placeholder="Search menu items" aria-label="Search menu items" value={addQuery} onChange={(e) => setAddQuery(e.target.value)} />
+          </InputGroup>
+          <ul className="-mx-1 flex max-h-80 flex-col overflow-y-auto">
+            {products
+              .filter((p) => recipeStatus(recipeByProduct.get(p.id)) !== 'complete' && p.name.toLowerCase().includes(addQuery.trim().toLowerCase()))
+              .map((p) => {
+                const st = recipeStatus(recipeByProduct.get(p.id))
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-lg p-2 text-start outline-none hover:bg-muted focus-visible:bg-muted"
+                      onClick={() => {
+                        setAddOpen(false)
+                        setAddQuery('')
+                        openRecipe(p)
+                      }}
+                    >
+                      <span className="relative size-9 shrink-0 overflow-hidden rounded-md bg-muted">
+                        <Image src={p.image} alt="" fill className="object-cover" sizes="36px" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{p.name}</span>
+                        <span className="block text-xs text-muted-foreground">{categories.find((c) => c.id === p.categoryId)?.name}</span>
+                      </span>
+                      <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px]', st === 'none' && 'text-muted-foreground')}>
+                        {st === 'costing' ? 'Has costing' : 'New'}
+                      </Badge>
+                    </button>
+                  </li>
+                )
+              })}
+          </ul>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

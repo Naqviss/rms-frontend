@@ -32,8 +32,9 @@ export function OptionSelect({
 }: OptionSelectProps) {
   return (
     <Select items={options} value={value} onValueChange={(v) => v !== null && onValueChange(v)} disabled={disabled}>
-      <SelectTrigger id={id} className={cn('w-full', className)} aria-label={rest['aria-label']}>
-        <SelectValue placeholder={placeholder} />
+      <SelectTrigger id={id} className={cn('w-full min-w-0', className)} aria-label={rest['aria-label']}>
+        {/* Long labels truncate instead of stretching the trigger past its container. */}
+        <SelectValue placeholder={placeholder} className="block! min-w-0 truncate" />
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>

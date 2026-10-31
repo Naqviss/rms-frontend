@@ -70,13 +70,13 @@ export function FormDialog({ open, onOpenChange, title, description, fields, ini
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[90dvh] grid-cols-1 overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className={cn(!description && 'sr-only')}>{description ?? title}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-          <FieldGroup className="grid gap-4 sm:grid-cols-2">
+          <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {fields.map((f) => {
               const id = `field-${f.name}`
               const bad = touched && invalid(f)
