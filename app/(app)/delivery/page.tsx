@@ -137,9 +137,9 @@ export default function DeliveryBoardPage() {
         }
       />
 
-      <ChannelFilter className="mb-4" channels={deliveryChannels} value={shown} onChange={setShown} counts={counts} />
+      <ChannelFilter channels={deliveryChannels} value={shown} onChange={setShown} counts={counts} />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Waiting for rider" value={String(stats.waiting)} icon={PackageCheckIcon} />
         <StatCard label="Out for delivery" value={String(stats.active)} icon={TruckIcon} />
         <StatCard label="Avg delivery time" value={`${stats.avgTime} min`} icon={ClockIcon} />

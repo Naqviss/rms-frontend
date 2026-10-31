@@ -221,7 +221,7 @@ export default function RecipeBookPage() {
   const showWelcome = isOwner && !welcomed && !welcomeDone && !isLoading
 
   return (
-    <div onPointerDown={touch} onKeyDown={touch}>
+    <div onPointerDown={touch} onKeyDown={touch} className="flex flex-col gap-4">
       <PageHeader
         title={t('recipes.title')}
         description={t('recipes.subtitle')}

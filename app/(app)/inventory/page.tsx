@@ -77,7 +77,7 @@ export default function InventoryOverviewPage() {
         <StatCard label={t('inventory.outItems')} value={String(stats.byStatus.out)} icon={PackageXIcon} />
         <StatCard label={t('inventory.expiringItems')} value={String(stats.byStatus.expiring)} icon={ClockIcon} />
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-5">
+      <div className="grid gap-4 lg:grid-cols-5">
         <ChartCard className="lg:col-span-3" title={t('inventory.valueByCategory')}>
           <ChartContainer config={valueConfig} className="h-64 w-full">
             <BarChart data={stats.categories} layout="vertical" margin={{ left: 8, right: 8 }}>
@@ -109,7 +109,7 @@ export default function InventoryOverviewPage() {
           </ChartContainer>
         </ChartCard>
       </div>
-      <Card className="mt-4">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('w.inventoryAlerts')}</CardTitle>
           <CardDescription>{alerts.length}</CardDescription>

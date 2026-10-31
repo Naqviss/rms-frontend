@@ -166,7 +166,8 @@ export function AppShell({ children, mode = 'app' }: { children: React.ReactNode
             </div>
           </header>
           <main className="flex-1 px-3 py-5 sm:px-6 sm:py-6">
-            <div className="mx-auto w-full max-w-[1500px]">
+            {/* Pages render their sections as siblings; the column gap spaces header, stats, filters and tables evenly. */}
+            <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4">
               <AccessGate mode={mode}>{children}</AccessGate>
             </div>
           </main>

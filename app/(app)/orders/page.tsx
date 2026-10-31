@@ -182,7 +182,7 @@ export default function OrdersPage() {
           </>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <ChannelFilter channels={channels} value={shown} onChange={setShown} counts={counts} />
         {awaitingCount > 0 && (
           <span className="flex items-center gap-2 rounded-full bg-warning/20 px-3 py-1.5 text-sm font-medium text-warning-foreground dark:text-warning">

@@ -82,7 +82,7 @@ export default function ChannelComparisonPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         {summary.map((c) => {
           return (
             <StatCard
@@ -97,7 +97,7 @@ export default function ChannelComparisonPage() {
         })}
       </div>
 
-      <div className="mb-6 grid gap-4 xl:grid-cols-5">
+      <div className="grid gap-4 xl:grid-cols-5">
         <ChartCard title="Daily sales by channel" description="Gross sales per day" className="xl:col-span-3">
           <ChartContainer config={chartConfig} className="h-72 w-full">
             <BarChart data={daily} accessibilityLayer>
