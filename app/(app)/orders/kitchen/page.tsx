@@ -73,9 +73,7 @@ export default function KitchenPage() {
                           <span className="font-semibold tabular-nums">{i.quantity}x</span>
                           <span className="min-w-0">
                             {i.name}
-                            {(i.variant || i.addons?.length) && (
-                              <span className="block text-xs text-muted-foreground">{[i.variant, ...(i.addons ?? [])].filter(Boolean).join(', ')}</span>
-                            )}
+                            {!!i.options?.length && <span className="block text-xs text-muted-foreground">{i.options.join(', ')}</span>}
                           </span>
                         </li>
                       ))}

@@ -58,13 +58,16 @@ export const orders: Order[] = (() => {
     const type: OrderType = pick(rng, ['dine-in', 'dine-in', 'takeaway', 'delivery', 'delivery', 'online', 'online'] as const)
     const items: OrderItem[] = Array.from({ length: int(rng, 1, 4) }, () => {
       const p = pick(rng, available)
-      const variant = p.variants.length ? pick(rng, p.variants) : undefined
+      // Every pick-one group gets a random choice; about a third of orders add one extra.
+      const chosen = p.optionGroups.flatMap((g) =>
+        g.type === 'single' ? [pick(rng, g.options)] : rng() < 0.35 ? [pick(rng, g.options)] : [],
+      )
       return {
         productId: p.id,
         name: p.name,
         quantity: int(rng, 1, 3),
-        unitPrice: p.basePrice + (variant?.priceDelta ?? 0),
-        variant: variant?.name,
+        unitPrice: p.basePrice + chosen.reduce((s, o) => s + o.price, 0),
+        options: chosen.length ? chosen.map((o) => o.name) : undefined,
       }
     })
     const subtotal = items.reduce((s, it) => s + it.quantity * it.unitPrice, 0)

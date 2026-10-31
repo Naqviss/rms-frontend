@@ -10,10 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ChartCard } from '@/components/common/chart-card'
 import { PageHeader } from '@/components/common/page-header'
 import { StatCard } from '@/components/common/stat-card'
+import { TaxToggle } from '@/components/common/tax-toggle'
 import { useTransactions } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCompactCurrency, formatCurrency, formatPercent } from '@/lib/utils/format'
+import { useAppStore } from '@/stores/app-store'
 
 const flowConfig = {
   income: { label: 'Income', color: 'var(--chart-2)' },
@@ -26,10 +28,12 @@ export default function FinancePage() {
   const { t } = useT()
   const { data, isLoading } = useTransactions()
   const { inBranch } = useScope()
+  const includeTax = useAppStore((s) => s.includeTax)
   const txs = useMemo(() => inBranch(data ?? []).filter((x) => x.status === 'completed'), [data, inBranch])
 
   const summary = useMemo(() => {
     let income = 0
+    let tax = 0
     let expense = 0
     const byDay = new Map<string, { income: number; expense: number }>()
     const byCategory = new Map<string, number>()
@@ -37,8 +41,10 @@ export default function FinancePage() {
       const day = x.date.slice(0, 10)
       const bucket = byDay.get(day) ?? { income: 0, expense: 0 }
       if (x.type === 'income') {
-        income += x.amount
-        bucket.income += x.amount
+        const amount = includeTax ? x.amount : x.amount - (x.tax ?? 0)
+        income += amount
+        tax += x.tax ?? 0
+        bucket.income += amount
       } else {
         expense += x.amount
         bucket.expense += x.amount
@@ -48,11 +54,12 @@ export default function FinancePage() {
     }
     return {
       income,
+      tax,
       expense,
       days: [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-30).map(([date, v]) => ({ date: date.slice(5), ...v })),
       categories: [...byCategory.entries()].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 7),
     }
-  }, [txs])
+  }, [txs, includeTax])
 
   const profit = summary.income - summary.expense
 
@@ -72,13 +79,19 @@ export default function FinancePage() {
         description={t('finance.subtitle')}
         actions={
           <>
+          <TaxToggle />
 <Button variant="outline" render={<Link href="/finance/closing" />} nativeButton={false}>{t('finance.closing')}</Button>
           <Button render={<Link href="/finance/transactions" />} nativeButton={false}>{t('finance.transactions')}</Button>
           </>
         }
       />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label={t('common.revenue')} value={formatCompactCurrency(summary.income)} icon={ArrowUpRightIcon} />
+        <StatCard
+          label={t('common.revenue')}
+          value={formatCompactCurrency(summary.income)}
+          icon={ArrowUpRightIcon}
+          hint={`${t('finance.taxCollected')}: ${formatCompactCurrency(summary.tax)}`}
+        />
         <StatCard label={t('common.expenses')} value={formatCompactCurrency(summary.expense)} icon={ArrowDownRightIcon} />
         <StatCard label={t('common.profit')} value={formatCompactCurrency(profit)} icon={PiggyBankIcon} />
         <StatCard label={t('finance.margin')} value={formatPercent(summary.income ? (profit / summary.income) * 100 : 0)} icon={ReceiptIcon} />

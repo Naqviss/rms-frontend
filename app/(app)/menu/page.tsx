@@ -16,9 +16,11 @@ import { FormDialog, type FieldDef, type FormValues } from '@/components/common/
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
-import { useCategories, useMenuGroups, useProducts } from '@/hooks/use-data'
+import { OptionGroupsEditor } from '@/components/menu/option-groups-editor'
+import { useCategories, useMenuGroups, useProducts, useTaxRates } from '@/hooks/use-data'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency } from '@/lib/utils/format'
+import { productPriceSplit, productTaxRate } from '@/lib/utils/tax'
 import { currentBranchIds } from '@/mocks/branches'
 import type { Product } from '@/types'
 
@@ -27,8 +29,11 @@ export default function MenuPage() {
   const { data: products, isLoading, create, update, remove, removeMany } = useProducts()
   const { data: categories } = useCategories()
   const { data: groups, update: updateGroup } = useMenuGroups()
+  const { data: taxRates } = useTaxRates()
+  const rates = taxRates ?? []
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Product | null>(null)
+  const [optionsFor, setOptionsFor] = useState<Product | null>(null)
   const [category, setCategory] = useState('all')
 
   const catName = (id: string) => categories?.find((c) => c.id === id)?.name ?? '-'
@@ -40,6 +45,18 @@ export default function MenuPage() {
     { name: 'categoryId', label: t('common.category'), type: 'select', required: true, options: (categories ?? []).map((c) => ({ value: c.id, label: c.name })) },
     { name: 'basePrice', label: t('menu.price'), type: 'number', required: true },
     { name: 'costPrice', label: t('menu.cost'), type: 'number', required: true },
+    {
+      name: 'taxRateId',
+      label: t('common.tax'),
+      type: 'select',
+      wide: true,
+      options: [
+        { value: 'none', label: t('menu.noTax') },
+        ...rates
+          .filter((r) => r.active || (editing !== 'new' && r.id === editing?.taxRateId))
+          .map((r) => ({ value: r.id, label: `${r.name} · ${r.rate}% ${r.inclusive ? t('menu.inclTax') : t('menu.plusTax')}` })),
+      ],
+    },
     { name: 'description', label: t('common.description'), type: 'textarea', wide: true },
     { name: 'available', label: t('menu.available'), type: 'switch' },
     { name: 'featured', label: t('menu.featured'), type: 'switch' },
@@ -63,12 +80,48 @@ export default function MenuPage() {
         ),
       },
       { id: 'category', header: t('common.category'), accessorFn: (r) => catName(r.categoryId) },
-      { accessorKey: 'basePrice', header: t('menu.price'), cell: ({ row }) => <span className="tabular-nums">{formatCurrency(row.original.basePrice)}</span> },
+      {
+        accessorKey: 'basePrice',
+        header: t('menu.price'),
+        cell: ({ row }) => {
+          const rate = productTaxRate(row.original, rates)
+          return (
+            <div className="tabular-nums">
+              <p>{formatCurrency(row.original.basePrice)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {rate ? `${rate.rate}% ${rate.inclusive ? t('menu.inclTax') : t('menu.plusTax')}` : t('menu.noTax')}
+              </p>
+            </div>
+          )
+        },
+      },
       {
         id: 'margin',
         header: t('menu.margin'),
-        accessorFn: (r) => Math.round(((r.basePrice - r.costPrice) / r.basePrice) * 100),
-        cell: ({ row }) => <span className="tabular-nums">{Math.round(((row.original.basePrice - row.original.costPrice) / row.original.basePrice) * 100)}%</span>,
+        // Margin on what the business keeps, so tax inside the price does not inflate it.
+        accessorFn: (r) => {
+          const { net } = productPriceSplit(r, rates)
+          return net ? Math.round(((net - r.costPrice) / net) * 100) : 0
+        },
+        cell: ({ getValue }) => <span className="tabular-nums">{getValue<number>()}%</span>,
+      },
+      {
+        id: 'options',
+        header: t('menu.options'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto max-w-56 justify-start truncate p-0 font-normal text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              setOptionsFor(row.original)
+            }}
+          >
+            {row.original.optionGroups.length ? row.original.optionGroups.map((g) => g.name).join(' · ') : t('menu.addOptions')}
+          </Button>
+        ),
       },
       {
         id: 'dietary',
@@ -106,6 +159,7 @@ export default function MenuPage() {
           <RowActions
             actions={[
               { label: t('common.edit'), onSelect: () => setEditing(row.original) },
+              { label: t('menu.options'), onSelect: () => setOptionsFor(row.original) },
               { label: t('common.delete'), destructive: true, onSelect: () => setDeleting(row.original) },
             ]}
           />
@@ -113,7 +167,7 @@ export default function MenuPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, categories],
+    [t, categories, taxRates],
   )
 
   const initial: FormValues =
@@ -124,11 +178,22 @@ export default function MenuPage() {
           categoryId: editing.categoryId,
           basePrice: editing.basePrice,
           costPrice: editing.costPrice,
+          taxRateId: editing.taxRateId ?? 'none',
           description: editing.description,
           available: editing.available,
           featured: editing.featured,
         }
-      : { name: '', sku: '', categoryId: categories?.[0]?.id ?? '', basePrice: 0, costPrice: 0, description: '', available: true, featured: false }
+      : {
+          name: '',
+          sku: '',
+          categoryId: categories?.[0]?.id ?? '',
+          basePrice: 0,
+          costPrice: 0,
+          taxRateId: rates.find((r) => r.active)?.id ?? 'none',
+          description: '',
+          available: true,
+          featured: false,
+        }
 
   const save = async (v: FormValues) => {
     const patch = {
@@ -137,6 +202,7 @@ export default function MenuPage() {
       categoryId: String(v.categoryId),
       basePrice: Number(v.basePrice),
       costPrice: Number(v.costPrice),
+      taxRateId: v.taxRateId === 'none' ? null : String(v.taxRateId),
       description: String(v.description),
       available: !!v.available,
       featured: !!v.featured,
@@ -149,10 +215,8 @@ export default function MenuPage() {
       await create({
         ...patch,
         image: cat?.image ?? '/food/burgers.jpg',
-        taxClass: 'standard',
         dietary: [],
-        variants: [],
-        addons: [],
+        optionGroups: [],
         ingredients: [],
         branchIds: currentBranchIds,
         menuId: groups?.[0]?.id ?? '',
@@ -249,6 +313,36 @@ export default function MenuPage() {
         fields={fields}
         initial={initial}
         onSubmit={save}
+        preview={(v) => {
+          const split = productPriceSplit({ taxRateId: v.taxRateId === 'none' ? null : String(v.taxRateId), basePrice: Number(v.basePrice) || 0 }, rates)
+          return (
+            <div className="flex flex-col gap-2 rounded-lg bg-muted/60 p-3 text-sm">
+              <dl className="grid grid-cols-3 gap-2">
+                {[
+                  { label: t('menu.youKeep'), value: split.net },
+                  { label: t('common.tax'), value: split.tax },
+                  { label: t('menu.customerPays'), value: split.gross },
+                ].map((r) => (
+                  <div key={r.label}>
+                    <dt className="text-[11px] text-muted-foreground">{r.label}</dt>
+                    <dd className="font-semibold tabular-nums">{formatCurrency(r.value)}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-xs text-pretty text-muted-foreground">{t('menu.taxHint')}</p>
+            </div>
+          )
+        }}
+      />
+      <OptionGroupsEditor
+        product={optionsFor}
+        onOpenChange={(o) => !o && setOptionsFor(null)}
+        onSave={async (optionGroups) => {
+          if (!optionsFor) return
+          await update(optionsFor.id, { optionGroups })
+          toast.success(t('common.updated'))
+          setOptionsFor(null)
+        }}
       />
       <ConfirmDialog
         open={!!deleting}

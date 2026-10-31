@@ -9,11 +9,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChartCard } from '@/components/common/chart-card'
 import { PageHeader } from '@/components/common/page-header'
-import { useOrders } from '@/hooks/use-data'
+import { TaxToggle } from '@/components/common/tax-toggle'
+import { useOrders, useProducts, useTaxRates } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { downloadCsv } from '@/lib/utils/csv'
 import { formatCompactCurrency, formatCurrency, titleCase } from '@/lib/utils/format'
+import { productPriceSplit, revenueWithTax } from '@/lib/utils/tax'
+import { useAppStore } from '@/stores/app-store'
 
 const salesConfig = { revenue: { label: 'Revenue', color: 'var(--chart-1)' }, orders: { label: 'Orders', color: 'var(--chart-3)' } } satisfies ChartConfig
 const hourConfig = { orders: { label: 'Orders', color: 'var(--chart-2)' } } satisfies ChartConfig
@@ -23,27 +26,35 @@ export default function ReportsPage() {
   const { t } = useT()
   const { data, isLoading } = useOrders()
   const { inBranch, inRange } = useScope()
+  const { data: products } = useProducts()
+  const { data: taxRates } = useTaxRates()
+  const includeTax = useAppStore((s) => s.includeTax)
 
   const orders = useMemo(() => inRange(inBranch(data ?? []), (o) => o.createdAt).filter((o) => o.status !== 'cancelled'), [data, inBranch, inRange])
 
   const report = useMemo(() => {
+    const productById = new Map((products ?? []).map((p) => [p.id, p]))
     const byDay = new Map<string, { revenue: number; orders: number }>()
     const byType = new Map<string, number>()
     const byHour = new Map<number, number>()
     const byProduct = new Map<string, { qty: number; revenue: number }>()
     for (const o of orders) {
+      const revenue = revenueWithTax(o.total, o.tax, includeTax)
       const d = o.createdAt.slice(5, 10)
       const b = byDay.get(d) ?? { revenue: 0, orders: 0 }
-      b.revenue += o.total
+      b.revenue += revenue
       b.orders++
       byDay.set(d, b)
-      byType.set(o.type, (byType.get(o.type) ?? 0) + o.total)
+      byType.set(o.type, (byType.get(o.type) ?? 0) + revenue)
       const h = Number(o.createdAt.slice(11, 13))
       byHour.set(h, (byHour.get(h) ?? 0) + 1)
       for (const i of o.items) {
         const p = byProduct.get(i.name) ?? { qty: 0, revenue: 0 }
+        const product = productById.get(i.productId)
+        const amount = i.quantity * i.unitPrice
+        const split = product ? productPriceSplit(product, taxRates ?? [], amount) : { net: amount, gross: amount }
         p.qty += i.quantity
-        p.revenue += i.quantity * i.unitPrice
+        p.revenue += includeTax ? split.gross : split.net
         byProduct.set(i.name, p)
       }
     }
@@ -52,9 +63,9 @@ export default function ReportsPage() {
       types: [...byType.entries()].map(([name, value], i) => ({ name, value, fill: colors[i % colors.length] })),
       hours: Array.from({ length: 16 }, (_, i) => ({ hour: `${i + 8}h`, orders: byHour.get(i + 8) ?? 0 })),
       top: [...byProduct.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue).slice(0, 8),
-      total: orders.reduce((s, o) => s + o.total, 0),
+      total: orders.reduce((s, o) => s + revenueWithTax(o.total, o.tax, includeTax), 0),
     }
-  }, [orders])
+  }, [orders, products, taxRates, includeTax])
 
   const typeConfig = Object.fromEntries(report.types.map((x) => [x.name, { label: titleCase(x.name), color: x.fill }])) satisfies ChartConfig
 
@@ -64,10 +75,13 @@ export default function ReportsPage() {
         title={t('reports.title')}
         description={`${t('reports.subtitle')} · ${formatCurrency(report.total)}`}
         actions={
-          <Button variant="outline" onClick={() => downloadCsv('sales-report', report.days)} disabled={isLoading}>
-            <DownloadIcon data-icon="inline-start" />
-            {t('common.exportCsv')}
-          </Button>
+          <>
+            <TaxToggle />
+            <Button variant="outline" onClick={() => downloadCsv('sales-report', report.days)} disabled={isLoading}>
+              <DownloadIcon data-icon="inline-start" />
+              {t('common.exportCsv')}
+            </Button>
+          </>
         }
       />
       {isLoading ? (

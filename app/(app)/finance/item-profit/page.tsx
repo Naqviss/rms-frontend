@@ -16,7 +16,8 @@ import { ChartCard } from '@/components/common/chart-card'
 import { DataTable } from '@/components/common/data-table'
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
-import { useOrders } from '@/hooks/use-data'
+import { TaxToggle } from '@/components/common/tax-toggle'
+import { useOrders, useTaxRates } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useUnitCosts } from '@/hooks/use-unit-costs'
 import { useT } from '@/lib/i18n/use-t'
@@ -25,6 +26,7 @@ import { formatCompactCurrency, formatCurrency, formatNumber, formatPercent } fr
 import { profitabilityWithOverhead, rankItems, RANK_METRICS, type ItemProfit, type RankMetric } from '@/lib/utils/profitability'
 import { aggregateSales } from '@/mocks/finance'
 import { categories } from '@/mocks/menu'
+import { useAppStore } from '@/stores/app-store'
 
 const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Menu item'
 
@@ -117,6 +119,8 @@ export default function ItemProfitPage() {
   const { branchIds, days, inBranch, inRange } = useScope()
   const [metric, setMetric] = useState<RankMetric>('profit')
   const [overrideRate, setOverrideRate] = useState<number | null>(null)
+  const { data: taxRates } = useTaxRates()
+  const includeTax = useAppStore((s) => s.includeTax)
 
   const profit = useMemo(() => {
     const orders = inRange(inBranch(orderData ?? []), (o) => o.createdAt)
@@ -127,8 +131,9 @@ export default function ItemProfitPage() {
       { revenue: pl.reduce((s, d) => s + d.revenue, 0), expenses: pl.reduce((s, d) => s + d.expenses, 0) },
       overrideRate,
       unitCosts,
+      { rates: taxRates ?? [], include: includeTax },
     )
-  }, [orderData, products, unitCosts, inBranch, inRange, branchIds, days, overrideRate])
+  }, [orderData, products, unitCosts, inBranch, inRange, branchIds, days, overrideRate, taxRates, includeTax])
 
   const ranked = useMemo(() => rankItems(profit.items, metric), [profit.items, metric])
   const hero = ranked[0] ?? null
@@ -228,6 +233,7 @@ export default function ItemProfitPage() {
         description={t('itemProfit.subtitle')}
         actions={
           <>
+            <TaxToggle />
             <OptionSelect
               className="h-9 w-56"
               value={metric}
@@ -297,7 +303,9 @@ export default function ItemProfitPage() {
               <div className="min-w-0 text-sm">
                 <p className="font-medium">{t('expenses.howCalculated')}</p>
                 <p className="text-pretty text-muted-foreground">
-                  Expense per item = item cost per serving + overhead at {formatPercent(ratePct, 1)} of the item&apos;s income. Item cost comes from the
+                  Income is {includeTax ? 'counted with' : 'counted without'} the sales tax collected on each item (rates from{' '}
+                  <Link href="/taxes" className="font-medium text-primary underline-offset-2 hover:underline">Tax Management</Link>). Expense per item = item cost per
+                  serving + overhead at {formatPercent(ratePct, 1)} of the item&apos;s income before tax. Item cost comes from the
                   item&apos;s costing sheet (ingredients, wastage, packaging, gas, labour); items without one use the menu cost as an estimate
                   {estimates > 0 && (
                     <>
@@ -366,7 +374,8 @@ export default function ItemProfitPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {[
-                  { label: 'Item income', value: profit.income, cls: '' },
+                  { label: includeTax ? 'Item income (incl. tax)' : 'Item income (excl. tax)', value: profit.income, cls: '' },
+                  { label: t('finance.taxCollected'), value: profit.tax, cls: 'text-muted-foreground' },
                   { label: 'Item expense', value: profit.expense, cls: 'text-destructive' },
                   { label: 'Item profit', value: profit.profit, cls: 'text-success' },
                 ].map((r) => (
@@ -397,6 +406,7 @@ export default function ItemProfitPage() {
                 costSource: x.costSource,
                 units: x.units,
                 income: Math.round(x.income),
+                tax: Math.round(x.tax),
                 itemCost: Math.round(x.itemCost),
                 overhead: Math.round(x.overhead),
                 expensePerItem: Math.round(x.expensePerUnit),

@@ -15,6 +15,7 @@ import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { StatCard } from '@/components/common/stat-card'
 import { RecipeEditor, type RecipeDraft } from '@/components/costing/recipe-editor'
+import { useAccess } from '@/hooks/use-access'
 import { useProducts, useRecipes } from '@/hooks/use-data'
 import { useUnitCosts } from '@/hooks/use-unit-costs'
 import { useT } from '@/lib/i18n/use-t'
@@ -45,6 +46,7 @@ const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?
 
 export default function CostingPage() {
   const { t } = useT()
+  const { can } = useAccess()
   const { products, recipes, catalog, unitCosts, isLoading } = useUnitCosts()
   const { update: updateProduct } = useProducts()
   const { create: createRecipe, update: updateRecipe, remove: removeRecipe } = useRecipes()
@@ -300,8 +302,13 @@ export default function CostingPage() {
         targetCostPct={targetCostPct}
         onOpenChange={(o) => !o && setEditing(null)}
         onSave={save}
+        maskSecrets={!can('recipes', 'edit')}
         onRemove={async () => {
           if (!editingRecipe || !editing) return
+          if (editingRecipe.method?.length) {
+            toast.error(`${editing.name} has a full recipe in the Recipe Book. Delete it there instead.`)
+            return
+          }
           await removeRecipe(editingRecipe.id)
           toast.success(`Costing removed; ${editing.name} uses the menu cost again`)
           setEditing(null)

@@ -12,7 +12,7 @@ import { DataTable } from '@/components/common/data-table'
 import { FormDialog, type FormValues } from '@/components/common/form-dialog'
 import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
-import { useTaxRates } from '@/hooks/use-data'
+import { useProducts, useTaxRates } from '@/hooks/use-data'
 import { currentTenantBranches } from '@/mocks/branches'
 import { useT } from '@/lib/i18n/use-t'
 import type { TaxRate } from '@/types'
@@ -22,6 +22,12 @@ export default function TaxesPage() {
   const { data, isLoading, create, update, remove, removeMany } = useTaxRates()
   const [editing, setEditing] = useState<TaxRate | 'new' | null>(null)
   const [deleting, setDeleting] = useState<TaxRate | null>(null)
+  const { data: products } = useProducts()
+  const productCount = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const p of products ?? []) if (p.taxRateId) counts.set(p.taxRateId, (counts.get(p.taxRateId) ?? 0) + 1)
+    return counts
+  }, [products])
 
   const columns = useMemo<ColumnDef<TaxRate, unknown>[]>(
     () => [
@@ -29,6 +35,12 @@ export default function TaxesPage() {
       { accessorKey: 'rate', header: t('taxes.rate'), cell: ({ row }) => <span className="tabular-nums">{row.original.rate}%</span> },
       { accessorKey: 'category', header: t('common.category') },
       { accessorKey: 'appliesTo', header: t('taxes.appliesTo') },
+      {
+        id: 'products',
+        header: t('taxes.products'),
+        accessorFn: (r) => productCount.get(r.id) ?? 0,
+        cell: ({ getValue }) => <span className="tabular-nums">{getValue<number>()}</span>,
+      },
       {
         accessorKey: 'inclusive',
         header: t('taxes.mode'),
@@ -57,7 +69,7 @@ export default function TaxesPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t],
+    [t, productCount],
   )
 
   const initial: FormValues =

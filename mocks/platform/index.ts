@@ -83,17 +83,17 @@ const V: PermissionAction[] = ['view']
 const N: PermissionAction[] = []
 
 function matrix(entries: Partial<Record<PermissionModule, PermissionAction[]>>): PermissionMatrix {
-  const modules: PermissionModule[] = ['dashboard', 'orders', 'inventory', 'menu', 'finance', 'reports', 'employees', 'customers', 'settings']
+  const modules: PermissionModule[] = ['dashboard', 'orders', 'inventory', 'menu', 'recipes', 'finance', 'reports', 'employees', 'customers', 'settings']
   return Object.fromEntries(modules.map((m) => [m, entries[m] ?? N])) as PermissionMatrix
 }
 
 export const roles: Role[] = [
-  { id: 'tenant-owner', name: 'Tenant Owner', description: 'Full access to every module and setting.', permissions: matrix({ dashboard: A, orders: A, inventory: A, menu: A, finance: A, reports: A, employees: A, customers: A, settings: A }) },
-  { id: 'administrator', name: 'Administrator', description: 'Manages operations, staff and configuration.', permissions: matrix({ dashboard: A, orders: A, inventory: A, menu: A, finance: VE, reports: V, employees: A, customers: A, settings: VE }) },
-  { id: 'branch-manager', name: 'Branch Manager', description: 'Runs day-to-day operations of assigned branches.', permissions: matrix({ dashboard: V, orders: A, inventory: VE, menu: VE, finance: V, reports: V, employees: VE, customers: VE }) },
+  { id: 'tenant-owner', name: 'Tenant Owner', description: 'Full access to every module and setting.', permissions: matrix({ dashboard: A, orders: A, inventory: A, menu: A, recipes: A, finance: A, reports: A, employees: A, customers: A, settings: A }) },
+  { id: 'administrator', name: 'Administrator', description: 'Manages operations, staff and configuration.', permissions: matrix({ dashboard: A, orders: A, inventory: A, menu: A, recipes: V, finance: VE, reports: V, employees: A, customers: A, settings: VE }) },
+  { id: 'branch-manager', name: 'Branch Manager', description: 'Runs day-to-day operations of assigned branches.', permissions: matrix({ dashboard: V, orders: A, inventory: VE, menu: VE, recipes: V, finance: V, reports: V, employees: VE, customers: VE }) },
   { id: 'cashier', name: 'Cashier', description: 'Takes orders and payments at the counter.', permissions: matrix({ orders: VE, customers: VE, menu: V }) },
   { id: 'waiter', name: 'Waiter', description: 'Creates dine-in orders and manages tables.', permissions: matrix({ orders: VE, menu: V }) },
-  { id: 'chef', name: 'Chef', description: 'Views kitchen queue and updates stock usage.', permissions: matrix({ orders: ['view', 'edit'], inventory: VE, menu: V }) },
+  { id: 'chef', name: 'Chef', description: 'Views kitchen queue and updates stock usage.', permissions: matrix({ orders: ['view', 'edit'], inventory: VE, menu: V, recipes: V }) },
   { id: 'rider', name: 'Rider', description: 'Sees and updates assigned delivery orders.', permissions: matrix({ orders: ['view', 'edit'] }) },
   { id: 'accountant', name: 'Accountant', description: 'Manages finance, tax and reports.', permissions: matrix({ dashboard: V, finance: A, reports: A, inventory: V, orders: V }) },
 ]

@@ -140,13 +140,16 @@ export const transactions: Transaction[] = (() => {
     const branchId = pick(rng, ['b1', 'b2', 'b3'])
     if (roll < 0.52) {
       const channel = pick(rng, ['dine-in', 'dine-in', 'takeaway', 'own-delivery', 'foodpanda', 'foodpanda', 'website'] as const)
+      const amount = int(rng, 38, 210) * 1000
       list.push({
         id: `tx-${i + 1}`,
         reference: `INV-${7000 + i}`,
         type: 'income',
         category: channelIncomeCategory[channel],
         description: channel === 'foodpanda' ? 'Foodpanda payout' : 'Daily settlement',
-        amount: int(rng, 38, 210) * 1000,
+        amount,
+        // Settlements are tax-inclusive at the 13% sales tax on services.
+        tax: Math.round((amount * 13) / 113),
         channel,
         method: channel === 'foodpanda' ? 'online' : pick(rng, ['cash', 'card', 'online'] as const),
         date: isoDaysAgo(config.referenceDate, daysAgo, int(rng, 9, 23), int(rng, 0, 59)),

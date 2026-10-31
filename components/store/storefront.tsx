@@ -12,14 +12,17 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SiteView, type SiteItem } from '@/components/cms/site-view'
+import { ProductOptionsDialog } from '@/components/menu/product-options-dialog'
 import { useBranches, useOrders, useProducts } from '@/hooks/use-data'
 import { templateById } from '@/lib/cms/templates'
 import { formatCurrency } from '@/lib/utils/format'
+import { hasOptions } from '@/lib/utils/options'
 import { useChannelStore } from '@/stores/channel-store'
 import { useSiteStore } from '@/stores/site-store'
-import type { Order } from '@/types'
+import type { Order, Product } from '@/types'
 
-type Line = { item: SiteItem; qty: number }
+/** One cart row per item and option combination; `price` already includes the options. */
+type Line = { key: string; item: SiteItem; qty: number; options: string[]; price: number }
 type Fulfillment = 'delivery' | 'pickup'
 type Payment = 'cash' | 'online'
 
@@ -37,6 +40,7 @@ export function Storefront() {
   const [fulfillment, setFulfillment] = useState<Fulfillment>(website.acceptDelivery ? 'delivery' : 'pickup')
   const [payment, setPayment] = useState<Payment>(website.paymentCash ? 'cash' : 'online')
   const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
+  const [customizing, setCustomizing] = useState<{ item: SiteItem; product: Product } | null>(null)
 
   const items: SiteItem[] = useMemo(() => {
     const live = (products ?? []).filter((p) => p.available)
@@ -44,7 +48,7 @@ export function Storefront() {
     return sorted.slice(0, 12).map((p) => ({ id: p.id, name: p.name, description: p.description, price: p.basePrice, image: p.image }))
   }, [products])
 
-  const subtotal = cart.reduce((s, l) => s + l.item.price * l.qty, 0)
+  const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0)
   const count = cart.reduce((s, l) => s + l.qty, 0)
   const fee = fulfillment === 'delivery' && subtotal < website.freeDeliveryOver ? website.deliveryFee : 0
   const total = subtotal + fee
@@ -54,11 +58,17 @@ export function Storefront() {
 
   const add = (item: SiteItem) => {
     if (!websiteOrderingEnabled) return toast.error('Online ordering is paused right now')
-    setCart((c) => (c.some((l) => l.item.id === item.id) ? c.map((l) => (l.item.id === item.id ? { ...l, qty: l.qty + 1 } : l)) : [...c, { item, qty: 1 }]))
+    const product = products?.find((p) => p.id === item.id)
+    if (product && hasOptions(product)) return setCustomizing({ item, product })
+    addLine(item, [], item.price)
+  }
+  const addLine = (item: SiteItem, options: string[], price: number) => {
+    const key = [item.id, ...options].join('|')
+    setCart((c) => (c.some((l) => l.key === key) ? c.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l)) : [...c, { key, item, qty: 1, options, price }]))
     toast.success(`${item.name} added`)
   }
-  const changeQty = (id: string, delta: number) =>
-    setCart((c) => c.flatMap((l) => (l.item.id !== id ? [l] : l.qty + delta <= 0 ? [] : [{ ...l, qty: l.qty + delta }])))
+  const changeQty = (key: string, delta: number) =>
+    setCart((c) => c.flatMap((l) => (l.key !== key ? [l] : l.qty + delta <= 0 ? [] : [{ ...l, qty: l.qty + delta }])))
 
   const place = async () => {
     setBusy(true)
@@ -71,7 +81,13 @@ export function Storefront() {
       status: 'pending',
       paymentStatus: payment === 'online' ? 'paid' : 'unpaid',
       paymentMethod: payment,
-      items: cart.map((l) => ({ productId: l.item.id, name: l.item.name, quantity: l.qty, unitPrice: l.item.price })),
+      items: cart.map((l) => ({
+        productId: l.item.id,
+        name: l.item.name,
+        quantity: l.qty,
+        unitPrice: l.price,
+        options: l.options.length ? l.options : undefined,
+      })),
       subtotal,
       discount: 0,
       tax: 0,
@@ -140,18 +156,19 @@ export function Storefront() {
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
               <ul className="flex flex-col gap-2">
                 {cart.map((l) => (
-                  <li key={l.item.id} className="flex items-center gap-3 rounded-lg border p-2">
+                  <li key={l.key} className="flex items-center gap-3 rounded-lg border p-2">
                     <img src={l.item.image} alt="" className="size-12 rounded-md object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{l.item.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(l.item.price * l.qty)}</p>
+                      {l.options.length > 0 && <p className="truncate text-xs text-muted-foreground">{l.options.join(', ')}</p>}
+                      <p className="text-xs text-muted-foreground">{formatCurrency(l.price * l.qty)}</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button size="icon-xs" variant="outline" aria-label={`Remove one ${l.item.name}`} onClick={() => changeQty(l.item.id, -1)}>
+                      <Button size="icon-xs" variant="outline" aria-label={`Remove one ${l.item.name}`} onClick={() => changeQty(l.key, -1)}>
                         {l.qty === 1 ? <Trash2Icon /> : <MinusIcon />}
                       </Button>
                       <span className="w-5 text-center text-sm tabular-nums">{l.qty}</span>
-                      <Button size="icon-xs" variant="outline" aria-label={`Add one ${l.item.name}`} onClick={() => changeQty(l.item.id, 1)}>
+                      <Button size="icon-xs" variant="outline" aria-label={`Add one ${l.item.name}`} onClick={() => changeQty(l.key, 1)}>
                         <PlusIcon />
                       </Button>
                     </div>
@@ -241,6 +258,12 @@ export function Storefront() {
           )}
         </SheetContent>
       </Sheet>
+
+      <ProductOptionsDialog
+        product={customizing?.product ?? null}
+        onOpenChange={(o) => !o && setCustomizing(null)}
+        onAdd={(_product, options, price) => customizing && addLine(customizing.item, options, price)}
+      />
     </>
   )
 }

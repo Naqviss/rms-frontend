@@ -34,9 +34,11 @@ interface FormDialogProps {
   initial: FormValues
   submitLabel?: string
   onSubmit: (values: FormValues) => void | Promise<void>
+  /** Live summary shown under the fields, computed from the values being edited. */
+  preview?: (values: FormValues) => React.ReactNode
 }
 
-export function FormDialog({ open, onOpenChange, title, description, fields, initial, submitLabel, onSubmit }: FormDialogProps) {
+export function FormDialog({ open, onOpenChange, title, description, fields, initial, submitLabel, onSubmit, preview }: FormDialogProps) {
   const { t } = useT()
   const [values, setValues] = useState<FormValues>(initial)
   const [submitting, setSubmitting] = useState(false)
@@ -119,6 +121,7 @@ export function FormDialog({ open, onOpenChange, title, description, fields, ini
               )
             })}
           </FieldGroup>
+          {preview?.(values)}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}

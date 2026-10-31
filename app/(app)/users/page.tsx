@@ -22,7 +22,7 @@ import { formatRelative, initials } from '@/lib/utils/format'
 import { currentBranchIds } from '@/mocks/branches'
 import type { AppUser, PermissionAction, PermissionModule, Role, RoleId } from '@/types'
 
-const modules: PermissionModule[] = ['dashboard', 'orders', 'inventory', 'menu', 'finance', 'reports', 'employees', 'customers', 'settings']
+const modules: PermissionModule[] = ['dashboard', 'orders', 'inventory', 'menu', 'recipes', 'finance', 'reports', 'employees', 'customers', 'settings']
 const actions: PermissionAction[] = ['view', 'create', 'edit', 'delete']
 
 export default function UsersPage() {

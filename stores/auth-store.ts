@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { config } from '@/lib/config'
+import { useRecipeVault } from '@/stores/recipe-vault-store'
 
 /** Prototype-only credentials. Replace with a real auth provider before going live. */
 const DEMO_USERNAME = 'admin'
@@ -26,7 +27,10 @@ export const useAuthStore = create<AuthState>()(
         if (ok) set({ username: DEMO_USERNAME, signedInAt: new Date().toISOString() })
         return ok
       },
-      logout: () => set({ username: null, signedInAt: null }),
+      logout: () => {
+        useRecipeVault.getState().lock()
+        set({ username: null, signedInAt: null })
+      },
     }),
     {
       name: `${config.storagePrefix}auth`,

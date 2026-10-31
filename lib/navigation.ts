@@ -1,6 +1,7 @@
 import {
   Bike,
   BarChart3,
+  BookLock,
   Building2,
   CreditCard,
   Globe,
@@ -101,6 +102,7 @@ export const appNav: NavGroup[] = [
         ],
       },
       { href: '/menu', label: 'nav.menu', icon: UtensilsCrossed, module: 'menu' },
+      { href: '/recipes', label: 'nav.recipes', icon: BookLock, module: 'recipes', minPlan: 'professional' },
     ],
   },
   {

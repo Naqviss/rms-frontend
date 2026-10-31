@@ -21,6 +21,8 @@ interface AppState {
   syncState: SyncState
   lastSyncAt: string
   cancelledAt: string | null
+  /** Count tax collected as part of revenue and profit figures. */
+  includeTax: boolean
   setBranch: (id: string) => void
   setLanguage: (lang: Language) => void
   toggleSidebar: () => void
@@ -31,6 +33,7 @@ interface AppState {
   setSyncState: (s: SyncState) => void
   markSynced: () => void
   setCancelled: (v: string | null) => void
+  setIncludeTax: (v: boolean) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -45,6 +48,7 @@ export const useAppStore = create<AppState>()(
       syncState: 'online',
       lastSyncAt: `${config.referenceDate}T17:58:00`,
       cancelledAt: null,
+      includeTax: false,
       setBranch: (branchId) => set({ branchId }),
       setLanguage: (language) => set({ language }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -55,6 +59,7 @@ export const useAppStore = create<AppState>()(
       setSyncState: (syncState) => set({ syncState }),
       markSynced: () => set({ syncState: 'online', lastSyncAt: new Date().toISOString().slice(0, 19) }),
       setCancelled: (cancelledAt) => set({ cancelledAt }),
+      setIncludeTax: (includeTax) => set({ includeTax }),
     }),
     {
       name: `${config.storagePrefix}app`,
@@ -66,6 +71,7 @@ export const useAppStore = create<AppState>()(
         role: s.role,
         plan: s.plan,
         cancelledAt: s.cancelledAt,
+        includeTax: s.includeTax,
       }),
       skipHydration: true,
     },

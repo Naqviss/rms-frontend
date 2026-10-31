@@ -1,6 +1,13 @@
-import type { Order, Product } from '@/types'
+import type { Order, Product, TaxRate } from '@/types'
 import type { CostSource, UnitCost } from '@/lib/utils/costing'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format'
+import { productPriceSplit } from '@/lib/utils/tax'
+
+/** How sales tax is treated: the rates products are taxed at, and whether collected tax counts as income. */
+export interface TaxView {
+  rates: TaxRate[]
+  include: boolean
+}
 
 export interface ItemProfit {
   id: string
@@ -8,8 +15,13 @@ export interface ItemProfit {
   categoryId: string
   image: string
   units: number
-  /** Money taken for the item (quantity x selling price, before order-level tax and discount). */
+  /**
+   * Money taken for the item (quantity x selling price, before order-level discount), net of tax.
+   * Includes the tax collected on it when the tax view says to.
+   */
   income: number
+  /** Sales tax collected on the item, whether or not it is counted in `income`. */
+  tax: number
   /** Direct cost of everything sold: units x cost per serving (costing sheet, or the menu cost price). */
   itemCost: number
   /** Where the per-serving cost came from. */
@@ -29,6 +41,7 @@ export interface ItemProfit {
 export interface ProfitSummary {
   items: ItemProfit[]
   income: number
+  tax: number
   expense: number
   profit: number
   /** Direct item cost as a share of item income (0-1). */
@@ -49,7 +62,8 @@ export function overheadRateFrom(totalRevenue: number, totalExpenses: number, fo
 /**
  * Per-item income, expense and profit from sold order lines.
  * Expense per item = direct cost per serving (from `unitCosts`, else the menu cost price)
- * + overhead allocated at `overheadRate` of the item's income.
+ * + overhead allocated at `overheadRate` of the item's net (tax-free) income.
+ * Without a `tax` view, prices are treated as untaxed.
  * The hero item is the one that contributes the most total profit.
  */
 export function itemProfitability(
@@ -57,27 +71,35 @@ export function itemProfitability(
   products: Product[],
   overheadRate: number,
   unitCosts?: Map<string, UnitCost>,
+  tax?: TaxView,
 ): ProfitSummary {
   const byId = new Map(products.map((p) => [p.id, p]))
-  const sold = new Map<string, { units: number; income: number }>()
+  const sold = new Map<string, { units: number; net: number; tax: number }>()
   for (const o of orders) {
     if (o.status === 'cancelled') continue
     for (const line of o.items) {
-      const s = sold.get(line.productId) ?? { units: 0, income: 0 }
+      const s = sold.get(line.productId) ?? { units: 0, net: 0, tax: 0 }
+      const amount = line.quantity * line.unitPrice
+      const p = byId.get(line.productId)
+      const split = tax && p ? productPriceSplit(p, tax.rates, amount) : { net: amount, tax: 0 }
       s.units += line.quantity
-      s.income += line.quantity * line.unitPrice
+      s.net += split.net
+      s.tax += split.tax
       sold.set(line.productId, s)
     }
   }
 
+  let net = 0
   const rows = [...sold.entries()].flatMap(([id, s]) => {
     const p = byId.get(id)
     if (!p || s.units === 0) return []
+    net += s.net
+    const income = s.net + (tax?.include ? s.tax : 0)
     const unit = unitCosts?.get(id) ?? { cost: p.costPrice, source: 'menu' as const }
     const itemCost = s.units * unit.cost
-    const overhead = s.income * overheadRate
+    const overhead = s.net * overheadRate
     const expense = itemCost + overhead
-    const profit = s.income - expense
+    const profit = income - expense
     return [
       {
         id,
@@ -85,7 +107,8 @@ export function itemProfitability(
         categoryId: p.categoryId,
         image: p.image,
         units: s.units,
-        income: s.income,
+        income,
+        tax: s.tax,
         itemCost,
         costSource: unit.source,
         overhead,
@@ -93,7 +116,7 @@ export function itemProfitability(
         expensePerUnit: expense / s.units,
         profit,
         profitPerUnit: profit / s.units,
-        margin: s.income ? (profit / s.income) * 100 : 0,
+        margin: income ? (profit / income) * 100 : 0,
         profitShare: 0,
       },
     ]
@@ -112,9 +135,10 @@ export function itemProfitability(
   return {
     items,
     income,
+    tax: rows.reduce((t, r) => t + r.tax, 0),
     expense,
     profit: income - expense,
-    foodCostRate: income ? direct / income : 0,
+    foodCostRate: net ? direct / net : 0,
     hero: items[0] ?? null,
     bestMargin: top('margin'),
     bestSeller: top('units'),
@@ -132,11 +156,12 @@ export function profitabilityWithOverhead(
   pl: { revenue: number; expenses: number },
   overrideRate: number | null = null,
   unitCosts?: Map<string, UnitCost>,
+  tax?: TaxView,
 ) {
-  const base = itemProfitability(orders, products, 0, unitCosts)
+  const base = itemProfitability(orders, products, 0, unitCosts, tax)
   const autoRate = overheadRateFrom(pl.revenue, pl.expenses, base.foodCostRate)
   const rate = overrideRate ?? autoRate
-  return { ...itemProfitability(orders, products, rate, unitCosts), rate, autoRate }
+  return { ...itemProfitability(orders, products, rate, unitCosts, tax), rate, autoRate }
 }
 
 export type RankMetric = 'profit' | 'profitPerUnit' | 'units' | 'margin'

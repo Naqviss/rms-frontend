@@ -12,24 +12,17 @@ import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
-import { OptionSelect } from '@/components/common/option-select'
+import { IngredientLines, newId, newIngredientLine } from '@/components/costing/ingredient-lines'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatPercent } from '@/lib/utils/format'
-import { ingredientLineCost, pricePerUnit, recipeCost, suggestedPrice, unitsFor, type CatalogItem } from '@/lib/utils/costing'
-import type { Product, Recipe, RecipeExtra, RecipeIngredient } from '@/types'
+import { recipeCost, suggestedPrice, type CatalogItem } from '@/lib/utils/costing'
+import type { Product, Recipe, RecipeExtra } from '@/types'
 
 export type RecipeDraft = Pick<Recipe, 'ingredients' | 'extras' | 'wastagePct' | 'notes'>
 
-const CUSTOM = '__custom'
-
-/** Gram- and ml-level prices are fractions of a rupee, so show paisa below Rs 10. */
-const formatUnitPrice = (v: number) => (v < 10 ? `Rs ${v.toFixed(2)}` : formatCurrency(v))
 const EXTRA_PRESETS = ['Packaging & condiments', 'Gas & electricity', 'Kitchen labour', 'Delivery bag', 'Cleaning & washing']
 
-let seq = 0
-const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${(seq++).toString(36)}`
-
-const emptyDraft = (): RecipeDraft => ({
+export const emptyDraft = (): RecipeDraft => ({
   ingredients: [],
   extras: [
     { id: newId('x'), label: 'Packaging & condiments', amount: 15 },
@@ -49,9 +42,11 @@ interface RecipeEditorProps {
   onSave: (draft: RecipeDraft) => Promise<void>
   onRemove: () => Promise<void>
   onApplyPrice: (price: number) => Promise<void>
+  /** Hide secret ingredients from people who are not recipe owners. */
+  maskSecrets?: boolean
 }
 
-export function RecipeEditor({ product, recipe, catalog, targetCostPct, onOpenChange, onSave, onRemove, onApplyPrice }: RecipeEditorProps) {
+export function RecipeEditor({ product, recipe, catalog, targetCostPct, onOpenChange, onSave, onRemove, onApplyPrice, maskSecrets }: RecipeEditorProps) {
   const [draft, setDraft] = useState<RecipeDraft>(emptyDraft)
   const [saving, setSaving] = useState(false)
   const bySku = useMemo(() => new Map(catalog.map((c) => [c.sku, c])), [catalog])
@@ -70,25 +65,7 @@ export function RecipeEditor({ product, recipe, catalog, targetCostPct, onOpenCh
   const costPct = price ? (cost.total / price) * 100 : 0
   const suggested = suggestedPrice(cost.total, targetCostPct)
 
-  const setLine = (id: string, patch: Partial<RecipeIngredient>) =>
-    setDraft((d) => ({ ...d, ingredients: d.ingredients.map((l) => (l.id === id ? { ...l, ...patch } : l)) }))
   const setExtra = (id: string, patch: Partial<RecipeExtra>) => setDraft((d) => ({ ...d, extras: d.extras.map((e) => (e.id === id ? { ...e, ...patch } : e)) }))
-
-  const addLine = () => {
-    const first = catalog.find((c) => !draft.ingredients.some((l) => l.sku === c.sku)) ?? catalog[0]
-    setDraft((d) => ({
-      ...d,
-      ingredients: [...d.ingredients, { id: newId('i'), sku: first?.sku ?? null, name: '', quantity: 0, unit: first ? unitsFor(first.unit)[0] : 'g', costPerUnit: 0 }],
-    }))
-  }
-
-  const ingredientOptions = useMemo(
-    () => [
-      ...catalog.map((c) => ({ value: c.sku, label: `${c.name} · ${formatCurrency(c.costPerUnit)}/${c.unit}` })),
-      { value: CUSTOM, label: 'Custom ingredient (not in stock)…' },
-    ],
-    [catalog],
-  )
 
   const run = async (fn: () => Promise<void>) => {
     setSaving(true)
@@ -126,108 +103,17 @@ export function RecipeEditor({ product, recipe, catalog, targetCostPct, onOpenCh
                     </h3>
                     <p className="text-xs text-muted-foreground">Stock items use today&apos;s inventory price. Use grams or ml for small amounts.</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={addLine}>
+                  <Button size="sm" variant="outline" onClick={() => setDraft((d) => ({ ...d, ingredients: [...d.ingredients, newIngredientLine(catalog, d.ingredients)] }))}>
                     <PlusIcon data-icon="inline-start" />
                     Add
                   </Button>
                 </div>
-                {draft.ingredients.length === 0 && (
-                  <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">No ingredients yet. Add what goes into one serving.</p>
-                )}
-                <ul className="flex flex-col gap-2">
-                  {draft.ingredients.map((line, i) => {
-                    const stock = line.sku ? bySku.get(line.sku) : undefined
-                    const lineCost = ingredientLineCost(line, bySku)
-                    const unitPrice = stock ? pricePerUnit(stock.unit, stock.costPerUnit, line.unit) : line.costPerUnit
-                    return (
-                      <li key={line.id} className="flex flex-col gap-2 rounded-lg border p-2.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <OptionSelect
-                            className="h-9 min-w-48 flex-1"
-                            aria-label={`Ingredient ${i + 1}`}
-                            value={line.sku ?? CUSTOM}
-                            options={ingredientOptions}
-                            onValueChange={(v) => {
-                              if (v === CUSTOM) setLine(line.id, { sku: null, name: line.name || stock?.name || '', unit: line.unit || 'g' })
-                              else {
-                                const next = bySku.get(v)
-                                setLine(line.id, { sku: v, name: '', unit: next ? unitsFor(next.unit)[0] : line.unit })
-                              }
-                            }}
-                          />
-                          <Input
-                            type="number"
-                            min={0}
-                            step="any"
-                            inputMode="decimal"
-                            className="h-9 w-24"
-                            aria-label={`Quantity of ingredient ${i + 1}`}
-                            value={line.quantity || ''}
-                            placeholder="Qty"
-                            onChange={(e) => setLine(line.id, { quantity: Math.max(0, Number(e.target.value) || 0) })}
-                          />
-                          {stock ? (
-                            <OptionSelect
-                              className="h-9 w-24"
-                              aria-label={`Unit of ingredient ${i + 1}`}
-                              value={line.unit}
-                              options={unitsFor(stock.unit).map((u) => ({ value: u, label: u }))}
-                              onValueChange={(u) => setLine(line.id, { unit: u })}
-                            />
-                          ) : (
-                            <Input
-                              className="h-9 w-24"
-                              aria-label={`Unit of ingredient ${i + 1}`}
-                              value={line.unit}
-                              placeholder="g"
-                              onChange={(e) => setLine(line.id, { unit: e.target.value })}
-                            />
-                          )}
-                          <span className="ms-auto w-24 text-end text-sm font-medium tabular-nums">{formatCurrency(lineCost)}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Remove ingredient ${i + 1}`}
-                            onClick={() => setDraft((d) => ({ ...d, ingredients: d.ingredients.filter((l) => l.id !== line.id) }))}
-                          >
-                            <Trash2Icon />
-                          </Button>
-                        </div>
-                        {stock ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            {formatUnitPrice(unitPrice)} per {line.unit} · {stock.category}
-                          </p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            <Input
-                              className="h-8 min-w-40 flex-1"
-                              aria-label={`Name of custom ingredient ${i + 1}`}
-                              placeholder="Ingredient name, e.g. Mayonnaise"
-                              value={line.name}
-                              onChange={(e) => setLine(line.id, { name: e.target.value })}
-                            />
-                            <InputGroup className="h-8 w-48">
-                              <InputGroupAddon>
-                                <InputGroupText>Rs</InputGroupText>
-                              </InputGroupAddon>
-                              <InputGroupInput
-                                type="number"
-                                min={0}
-                                step="any"
-                                aria-label={`Price per ${line.unit || 'unit'} for custom ingredient ${i + 1}`}
-                                value={line.costPerUnit || ''}
-                                onChange={(e) => setLine(line.id, { costPerUnit: Math.max(0, Number(e.target.value) || 0) })}
-                              />
-                              <InputGroupAddon align="inline-end">
-                                <InputGroupText>/{line.unit || 'unit'}</InputGroupText>
-                              </InputGroupAddon>
-                            </InputGroup>
-                          </div>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
+                <IngredientLines
+                  lines={draft.ingredients}
+                  setLines={(update) => setDraft((d) => ({ ...d, ingredients: update(d.ingredients) }))}
+                  catalog={catalog}
+                  maskSecrets={maskSecrets}
+                />
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
                   <Label htmlFor="wastage" className="flex-col items-start gap-0.5">
                     <span>Wastage buffer</span>
@@ -308,6 +194,9 @@ export function RecipeEditor({ product, recipe, catalog, targetCostPct, onOpenCh
                 </div>
               </section>
 
+              {/* Notes can hold supplier and method secrets, so only recipe owners see them. */}
+              {!maskSecrets && (
+                <>
               <Separator />
 
               <section className="flex flex-col gap-2 p-4">
@@ -320,6 +209,8 @@ export function RecipeEditor({ product, recipe, catalog, targetCostPct, onOpenCh
                   onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
                 />
               </section>
+                </>
+              )}
             </div>
 
             <div className="border-t bg-muted/40 p-4">

@@ -269,9 +269,7 @@ export default function OrdersPage() {
                         <p className="font-medium">
                           {i.quantity} x {i.name}
                         </p>
-                        {(i.variant || i.addons?.length) && (
-                          <p className="text-xs text-muted-foreground">{[i.variant, ...(i.addons ?? [])].filter(Boolean).join(', ')}</p>
-                        )}
+                        {!!i.options?.length && <p className="text-xs text-muted-foreground">{i.options.join(', ')}</p>}
                       </div>
                       <span className="tabular-nums">{formatCurrency(i.quantity * i.unitPrice)}</span>
                     </li>

@@ -6,23 +6,22 @@ import { MinusIcon, PlusIcon, SearchIcon, ShoppingBagIcon, Trash2Icon } from 'lu
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
+import { ProductOptionsDialog } from '@/components/menu/product-options-dialog'
 import { useCustomers, useCategories, useOrders, useProducts, useTables } from '@/hooks/use-data'
 import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/format'
+import { hasOptions } from '@/lib/utils/options'
 import { currentBranchIds } from '@/mocks/branches'
 import { TAX_RATE } from '@/mocks/orders'
 import type { OrderItem, OrderType, PaymentMethod, Product } from '@/types'
@@ -50,8 +49,6 @@ export default function PosPage() {
   const [discountPct, setDiscountPct] = useState(0)
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [customizing, setCustomizing] = useState<Product | null>(null)
-  const [variantIdx, setVariantIdx] = useState('0')
-  const [addonIdx, setAddonIdx] = useState<number[]>([])
 
   const visible = useMemo(
     () =>
@@ -71,27 +68,16 @@ export default function PosPage() {
 
   const openItem = (p: Product) => {
     if (!p.available) return
-    if (p.variants.length === 0 && p.addons.length === 0) {
-      addToCart(p, 0, [])
-      return
-    }
-    setCustomizing(p)
-    setVariantIdx('0')
-    setAddonIdx([])
+    if (hasOptions(p)) setCustomizing(p)
+    else addToCart(p, [], p.basePrice)
   }
 
-  const addToCart = (p: Product, vIdx: number, aIdx: number[]) => {
-    const variant = p.variants[vIdx]
-    const addons = aIdx.map((i) => p.addons[i])
-    const unitPrice = p.basePrice + (variant?.priceDelta ?? 0) + addons.reduce((s, a) => s + a.price, 0)
-    const key = [p.id, variant?.name ?? '', addons.map((a) => a.name).join('+')].join('|')
+  const addToCart = (p: Product, options: string[], unitPrice: number) => {
+    const key = [p.id, ...options].join('|')
     setCart((prev) => {
       const found = prev.find((l) => l.key === key)
       if (found) return prev.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l))
-      return [
-        ...prev,
-        { key, productId: p.id, name: p.name, quantity: 1, unitPrice, variant: variant?.name, addons: addons.map((a) => a.name) },
-      ]
+      return [...prev, { key, productId: p.id, name: p.name, quantity: 1, unitPrice, options: options.length ? options : undefined }]
     })
   }
 
@@ -131,12 +117,6 @@ export default function PosPage() {
     setTableId('')
     setDiscountPct(0)
   }
-
-  const customizingPrice = customizing
-    ? customizing.basePrice +
-      (customizing.variants[Number(variantIdx)]?.priceDelta ?? 0) +
-      addonIdx.reduce((s, i) => s + customizing.addons[i].price, 0)
-    : 0
 
   return (
     <>
@@ -253,7 +233,7 @@ export default function PosPage() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{l.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {[l.variant, ...(l.addons ?? [])].filter(Boolean).join(', ') || formatCurrency(l.unitPrice)}
+                        {l.options?.join(', ') || formatCurrency(l.unitPrice)}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -327,64 +307,7 @@ export default function PosPage() {
         </Card>
       </div>
 
-      <Dialog open={!!customizing} onOpenChange={(o) => !o && setCustomizing(null)}>
-        <DialogContent className="sm:max-w-md">
-          {customizing && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{customizing.name}</DialogTitle>
-                <DialogDescription>{t('orders.customizeItem')}</DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-4">
-                {customizing.variants.length > 0 && (
-                  <fieldset className="flex flex-col gap-2">
-                    <legend className="mb-1 text-sm font-medium">{t('orders.variant')}</legend>
-                    <RadioGroup value={variantIdx} onValueChange={setVariantIdx}>
-                      {customizing.variants.map((v, i) => (
-                        <Label key={v.name} className="flex items-center justify-between gap-3 rounded-lg border p-3 font-normal">
-                          <span className="flex items-center gap-2">
-                            <RadioGroupItem value={String(i)} />
-                            {v.name}
-                          </span>
-                          <span className="text-muted-foreground tabular-nums">{v.priceDelta ? `+${formatCurrency(v.priceDelta)}` : formatCurrency(0)}</span>
-                        </Label>
-                      ))}
-                    </RadioGroup>
-                  </fieldset>
-                )}
-                {customizing.addons.length > 0 && (
-                  <fieldset className="flex flex-col gap-2">
-                    <legend className="mb-1 text-sm font-medium">{t('orders.addons')}</legend>
-                    {customizing.addons.map((a, i) => (
-                      <Label key={a.name} className="flex items-center justify-between gap-3 rounded-lg border p-3 font-normal">
-                        <span className="flex items-center gap-2">
-                          <Checkbox
-                            checked={addonIdx.includes(i)}
-                            onCheckedChange={(v) => setAddonIdx((p) => (v ? [...p, i] : p.filter((x) => x !== i)))}
-                          />
-                          {a.name}
-                        </span>
-                        <span className="text-muted-foreground tabular-nums">+{formatCurrency(a.price)}</span>
-                      </Label>
-                    ))}
-                  </fieldset>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    addToCart(customizing, Number(variantIdx), addonIdx)
-                    setCustomizing(null)
-                  }}
-                >
-                  {t('orders.addToOrder')} · {formatCurrency(customizingPrice)}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ProductOptionsDialog product={customizing} onOpenChange={(o) => !o && setCustomizing(null)} onAdd={addToCart} />
     </>
   )
 }

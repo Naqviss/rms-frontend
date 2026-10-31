@@ -1,4 +1,4 @@
-import type { DietaryLabel, MenuCategory, MenuGroup, Product, ProductAddon, ProductVariant } from '@/types'
+import type { DietaryLabel, MenuCategory, MenuGroup, Product, ProductOptionGroup } from '@/types'
 
 export const menuGroups: MenuGroup[] = [
   { id: 'm1', name: 'Main Menu', description: 'Served all day at every branch', active: true },
@@ -15,29 +15,106 @@ export const categories: MenuCategory[] = [
   { id: 'c6', name: 'Desserts', slug: 'desserts', image: '/food/desserts.png', sortOrder: 6 },
 ]
 
-const sizeVariants: ProductVariant[] = [
-  { name: 'Regular', priceDelta: 0 },
-  { name: 'Large', priceDelta: 250 },
+const burgerOptions: ProductOptionGroup[] = [
+  {
+    id: 'patty',
+    name: 'Patty',
+    type: 'single',
+    options: [
+      { name: 'Single patty', price: 0 },
+      { name: 'Double patty', price: 350 },
+      { name: 'Triple patty', price: 650 },
+    ],
+  },
+  {
+    id: 'meal',
+    name: 'Make it a meal',
+    type: 'single',
+    options: [
+      { name: 'Burger only', price: 0 },
+      { name: 'With fries', price: 200 },
+      { name: 'Meal: fries + drink', price: 350 },
+    ],
+  },
+  {
+    id: 'extras',
+    name: 'Extras',
+    type: 'multiple',
+    options: [
+      { name: 'Extra cheese', price: 80 },
+      { name: 'Fried egg', price: 60 },
+      { name: 'Jalapenos', price: 50 },
+      { name: 'Caramelised onions', price: 60 },
+      { name: 'Extra sauce', price: 40 },
+    ],
+  },
 ]
-const pizzaVariants: ProductVariant[] = [
-  { name: 'Small 7"', priceDelta: -300 },
-  { name: 'Medium 10"', priceDelta: 0 },
-  { name: 'Large 13"', priceDelta: 450 },
+const sandwichOptions: ProductOptionGroup[] = [
+  {
+    id: 'size',
+    name: 'Size',
+    type: 'single',
+    options: [
+      { name: 'Regular', price: 0 },
+      { name: 'Large', price: 250 },
+    ],
+  },
+  {
+    id: 'extras',
+    name: 'Extras',
+    type: 'multiple',
+    options: [
+      { name: 'Extra cheese', price: 80 },
+      { name: 'Fried egg', price: 60 },
+      { name: 'Jalapenos', price: 50 },
+    ],
+  },
 ]
-const burgerAddons: ProductAddon[] = [
-  { name: 'Extra cheese', price: 80 },
-  { name: 'Fried egg', price: 60 },
-  { name: 'Jalapenos', price: 50 },
+const pizzaOptions: ProductOptionGroup[] = [
+  {
+    id: 'size',
+    name: 'Size',
+    type: 'single',
+    options: [
+      { name: 'Medium 10"', price: 0 },
+      { name: 'Small 7"', price: -300 },
+      { name: 'Large 13"', price: 450 },
+    ],
+  },
+  {
+    id: 'crust',
+    name: 'Crust',
+    type: 'single',
+    options: [
+      { name: 'Pan crust', price: 0 },
+      { name: 'Thin crust', price: 0 },
+      { name: 'Stuffed crust', price: 200 },
+    ],
+  },
+  {
+    id: 'toppings',
+    name: 'Extra toppings',
+    type: 'multiple',
+    options: [
+      { name: 'Extra cheese', price: 150 },
+      { name: 'Olives', price: 80 },
+      { name: 'Mushrooms', price: 100 },
+      { name: 'Jalapenos', price: 60 },
+    ],
+  },
 ]
-const pizzaAddons: ProductAddon[] = [
-  { name: 'Extra cheese', price: 150 },
-  { name: 'Olives', price: 80 },
-  { name: 'Stuffed crust', price: 200 },
+const drinkOptions: ProductOptionGroup[] = [
+  {
+    id: 'prefs',
+    name: 'Preferences',
+    type: 'multiple',
+    options: [
+      { name: 'Extra ice', price: 0 },
+      { name: 'Sugar free', price: 0 },
+    ],
+  },
 ]
-const drinkAddons: ProductAddon[] = [
-  { name: 'Extra ice', price: 0 },
-  { name: 'Sugar free', price: 0 },
-]
+const optionsByCategory: Record<string, ProductOptionGroup[]> = { c1: burgerOptions, c2: pizzaOptions, c3: sandwichOptions, c5: drinkOptions }
 
 type Seed = [
   name: string,
@@ -99,12 +176,11 @@ export const products: Product[] = seeds.map(([name, categoryId, basePrice, cost
   image: catImage[categoryId],
   basePrice,
   costPrice,
-  taxClass: categoryId === 'c5' ? 'Beverages 8%' : 'Restaurant 16%',
+  taxRateId: categoryId === 'c5' ? 'tx4' : 'tx1',
   available: i % 11 !== 7,
   featured: Boolean(featured),
   dietary,
-  variants: categoryId === 'c2' ? pizzaVariants : categoryId === 'c1' || categoryId === 'c3' ? sizeVariants : [],
-  addons: categoryId === 'c1' || categoryId === 'c3' ? burgerAddons : categoryId === 'c2' ? pizzaAddons : categoryId === 'c5' ? drinkAddons : [],
+  optionGroups: optionsByCategory[categoryId] ?? [],
   ingredients,
   branchIds: i % 9 === 4 ? ['b1', 'b3'] : ['b1', 'b2', 'b3'],
   menuId: categoryId === 'c6' && i % 2 === 0 ? 'm3' : 'm1',

@@ -44,14 +44,19 @@ export interface MenuCategory extends Entity {
   sortOrder: number
 }
 
-export interface ProductVariant {
+export interface ProductOption {
   name: string
-  priceDelta: number
+  /** Added to the base price; negative for a cheaper choice such as a smaller size. */
+  price: number
 }
 
-export interface ProductAddon {
+/** A set of choices offered when ordering, e.g. "Patty: Single / Double" or "Extras: cheese, egg". */
+export interface ProductOptionGroup {
+  id: ID
   name: string
-  price: number
+  /** `single`: exactly one choice, the first is preselected. `multiple`: any number, none by default. */
+  type: 'single' | 'multiple'
+  options: ProductOption[]
 }
 
 export type DietaryLabel = 'halal' | 'vegetarian' | 'spicy' | 'gluten-free'
@@ -64,12 +69,12 @@ export interface Product extends Entity {
   image: string
   basePrice: number
   costPrice: number
-  taxClass: string
+  /** Tax rate from Tax Management; whether it sits inside the price or on top follows that rate's `inclusive`. Null when untaxed. */
+  taxRateId: ID | null
   available: boolean
   featured: boolean
   dietary: DietaryLabel[]
-  variants: ProductVariant[]
-  addons: ProductAddon[]
+  optionGroups: ProductOptionGroup[]
   ingredients: string[]
   branchIds: ID[]
   menuId: ID
@@ -164,8 +169,8 @@ export interface OrderItem {
   name: string
   quantity: number
   unitPrice: number
-  variant?: string
-  addons?: string[]
+  /** Names of the chosen options, e.g. ["Double patty", "Extra cheese"]. */
+  options?: string[]
 }
 
 export type SalesChannel = 'dine-in' | 'takeaway' | 'own-delivery' | 'foodpanda' | 'website'
@@ -320,6 +325,8 @@ export interface Transaction extends Entity {
   payee?: string
   /** Set when the expense was recorded from a recurring schedule. */
   recurringId?: ID
+  /** Sales tax collected inside `amount` (income only). */
+  tax?: number
 }
 
 export type RecurringFrequency = 'weekly' | 'monthly' | 'quarterly'
@@ -353,7 +360,19 @@ export interface RecipeIngredient {
   unit: string
   /** Price per `unit` for ingredients that are not tracked in inventory. */
   costPerUnit: number
+  /** Only recipe owners see what this is; everyone else sees a code name and the quantity. */
+  secret?: boolean
 }
+
+export interface RecipeStep {
+  id: ID
+  text: string
+  /** Minutes this step takes; 0 when it is not timed. */
+  minutes: number
+}
+
+/** Who besides the recipe owners can open the kitchen card. */
+export type RecipeVisibility = 'owner' | 'managers' | 'kitchen'
 
 /** A non-ingredient cost spent on every serving: packaging, gas, labour minutes and so on. */
 export interface RecipeExtra {
@@ -371,6 +390,28 @@ export interface Recipe extends Entity {
   wastagePct: number
   notes: string
   updatedAt: string
+  // Recipe book fields. Sheets created from Item Costing do not have them yet.
+  method?: RecipeStep[]
+  prepMinutes?: number
+  cookMinutes?: number
+  /** Servings the kitchen usually cooks in one go; the kitchen card scales to it. */
+  batchServings?: number
+  allergens?: string[]
+  visibility?: RecipeVisibility
+  version?: number
+  updatedBy?: string
+}
+
+export type RecipeAccessAction = 'viewed' | 'edited' | 'printed' | 'unlocked' | 'unlock-failed'
+
+/** One line of the recipe access log: who looked at or changed which recipe, and when. */
+export interface RecipeAccessEvent extends Entity {
+  recipeId: ID | null
+  itemName: string
+  userName: string
+  role: RoleId
+  action: RecipeAccessAction
+  at: string
 }
 
 export interface TaxRate extends Entity {
@@ -462,6 +503,7 @@ export type PermissionModule =
   | 'orders'
   | 'inventory'
   | 'menu'
+  | 'recipes'
   | 'finance'
   | 'reports'
   | 'employees'
