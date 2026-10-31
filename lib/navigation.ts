@@ -3,7 +3,6 @@ import {
   BarChart3,
   BookLock,
   Building2,
-  CreditCard,
   Globe,
   LayoutDashboard,
   LayoutTemplate,
@@ -163,7 +162,8 @@ export const appNav: NavGroup[] = [
   {
     label: 'nav.group.admin',
     items: [
-      { href: '/subscription', label: 'nav.subscription', icon: CreditCard, module: 'settings' },
+      // Hidden for now; the /subscription page still exists.
+      // { href: '/subscription', label: 'nav.subscription', icon: CreditCard, module: 'settings' },
       { href: '/branches', label: 'nav.branches', icon: Store, module: 'settings' },
       { href: '/users', label: 'nav.users', icon: UserCog, module: 'settings' },
       { href: '/settings', label: 'nav.settings', icon: Settings, module: 'settings' },
