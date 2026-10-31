@@ -195,7 +195,11 @@ export function DataTable<T extends { id: string }>({
     const actions = pick('actions')
     const lead = pick(cardLead)
     const title = pick(titleId)
-    const fields = cells.filter((c) => !fixed.includes(c.column.id) && c.column.id !== titleId)
+    const rest = cells.filter((c) => !fixed.includes(c.column.id) && c.column.id !== titleId)
+    // Columns without a visible header are icons or badges: keep them beside the heading instead of as a labelled field.
+    const hasLabel = (c: Cell<T, unknown>) => typeof c.column.columnDef.header === 'string'
+    const fields = rest.filter(hasLabel)
+    const badges = rest.filter((c) => !hasLabel(c))
     return (
       <li
         key={row.id}
@@ -214,19 +218,21 @@ export function DataTable<T extends { id: string }>({
           {select && <div className="flex h-5 items-center">{renderCell(select)}</div>}
           {lead && <div className="shrink-0">{renderCell(lead)}</div>}
           <div className="min-w-0 flex-1">{title && renderCell(title)}</div>
+          {badges.map((c) => (
+            <div key={c.id} className="flex h-6 shrink-0 items-center">
+              {renderCell(c)}
+            </div>
+          ))}
           {actions && <div className="-me-1.5 -mt-1 shrink-0">{renderCell(actions)}</div>}
         </div>
         {fields.length > 0 && (
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3">
-            {fields.map((c) => {
-              const label = typeof c.column.columnDef.header === 'string' ? c.column.columnDef.header : null
-              return (
-                <div key={c.id} className={cn('min-w-0', !label && 'col-span-2')}>
-                  {label && <dt className="truncate text-[11px] font-medium text-muted-foreground">{label}</dt>}
-                  <dd className="mt-0.5 min-w-0 break-words">{renderCell(c)}</dd>
-                </div>
-              )
-            })}
+            {fields.map((c) => (
+              <div key={c.id} className="min-w-0">
+                <dt className="truncate text-[11px] font-medium text-muted-foreground">{c.column.columnDef.header as string}</dt>
+                <dd className="mt-0.5 min-w-0 break-words [&>*]:max-w-full">{renderCell(c)}</dd>
+              </div>
+            ))}
           </dl>
         )}
       </li>

@@ -39,7 +39,8 @@ export default function TaxesPage() {
         id: 'products',
         header: t('taxes.products'),
         accessorFn: (r) => productCount.get(r.id) ?? 0,
-        cell: ({ getValue }) => <span className="tabular-nums">{getValue<number>()}</span>,
+        // Read the count at paint time: accessor values are cached per row, and products may load after the rates.
+        cell: ({ row }) => <span className="tabular-nums">{productCount.get(row.original.id) ?? 0}</span>,
       },
       {
         accessorKey: 'inclusive',

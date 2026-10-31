@@ -22,7 +22,12 @@ import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency } from '@/lib/utils/format'
 import { productPriceSplit, productTaxRate } from '@/lib/utils/tax'
 import { currentBranchIds } from '@/mocks/branches'
-import type { Product } from '@/types'
+import type { Product, TaxRate } from '@/types'
+
+const netMargin = (p: Product, rates: TaxRate[]) => {
+  const { net } = productPriceSplit(p, rates)
+  return net ? Math.round(((net - p.costPrice) / net) * 100) : 0
+}
 
 export default function MenuPage() {
   const { t } = useT()
@@ -79,7 +84,8 @@ export default function MenuPage() {
           </div>
         ),
       },
-      { id: 'category', header: t('common.category'), accessorFn: (r) => catName(r.categoryId) },
+      // Render the name at paint time: accessor values are cached per row, and categories may load after products.
+      { id: 'category', header: t('common.category'), accessorFn: (r) => catName(r.categoryId), cell: ({ row }) => catName(row.original.categoryId) },
       {
         accessorKey: 'basePrice',
         header: t('menu.price'),
@@ -99,11 +105,9 @@ export default function MenuPage() {
         id: 'margin',
         header: t('menu.margin'),
         // Margin on what the business keeps, so tax inside the price does not inflate it.
-        accessorFn: (r) => {
-          const { net } = productPriceSplit(r, rates)
-          return net ? Math.round(((net - r.costPrice) / net) * 100) : 0
-        },
-        cell: ({ getValue }) => <span className="tabular-nums">{getValue<number>()}%</span>,
+        // The cell recomputes rather than reading the cached accessor value, since tax rates may load after products.
+        accessorFn: (r) => netMargin(r, rates),
+        cell: ({ row }) => <span className="tabular-nums">{netMargin(row.original, rates)}%</span>,
       },
       {
         id: 'options',
@@ -113,7 +117,7 @@ export default function MenuPage() {
           <Button
             variant="link"
             size="sm"
-            className="h-auto max-w-56 justify-start truncate p-0 font-normal text-muted-foreground"
+            className="h-auto max-w-56 justify-start truncate p-0 font-normal text-muted-foreground max-md:whitespace-normal max-md:text-start"
             onClick={(e) => {
               e.stopPropagation()
               setOptionsFor(row.original)
