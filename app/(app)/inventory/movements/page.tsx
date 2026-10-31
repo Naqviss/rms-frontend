@@ -64,6 +64,7 @@ export default function StockMovementsPage() {
     <>
       <PageHeader title={t('inventory.movements')} description={t('inventory.subtitle')} />
       <DataTable
+        cardTitle="itemName"
         columns={columns}
         data={rows}
         isLoading={isLoading}

@@ -395,6 +395,7 @@ export default function ItemProfitPage() {
           </div>
 
           <DataTable
+            cardLead="rank"
             key={metric}
             columns={columns}
             data={ranked}

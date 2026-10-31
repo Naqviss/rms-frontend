@@ -186,6 +186,7 @@ export default function PayrollPage() {
         <StatCard label={t('common.unpaid')} value={formatCompactCurrency(total - paidTotal)} icon={HourglassIcon} />
       </div>
       <DataTable
+        cardTitle="employeeName"
         columns={columns}
         data={ledger}
         isLoading={isLoading}

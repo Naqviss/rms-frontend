@@ -403,6 +403,7 @@ export default function RecipeBookPage() {
             {isOwner && (
               <TabsContent value="log" className="mt-4">
                 <DataTable
+                  cardTitle="itemName"
                   columns={logColumns}
                   data={accessLog}
                   exportName="recipe-access-log"

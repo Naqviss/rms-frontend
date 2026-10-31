@@ -192,6 +192,7 @@ export default function OrdersPage() {
         )}
       </div>
       <DataTable
+        cardLead="channel"
         columns={columns}
         data={rows}
         isLoading={isLoading}

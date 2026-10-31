@@ -8,7 +8,9 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type Cell,
   type ColumnDef,
+  type Row,
   type RowSelectionState,
   type SortingState,
   type VisibilityState,
@@ -64,9 +66,15 @@ interface DataTableProps<T extends { id: string }> {
   emptyDescription?: string
   initialSort?: SortingState
   initialHidden?: VisibilityState
+  /** Column shown as the card heading on small screens. Defaults to the first data column. */
+  cardTitle?: string
+  /** Small column (icon, rank...) shown before the card heading on small screens. */
+  cardLead?: string
 }
 
 const PAGE_SIZES = ['10', '25', '50']
+
+const renderCell = <T,>(cell: Cell<T, unknown>) => flexRender(cell.column.columnDef.cell, cell.getContext())
 
 export function DataTable<T extends { id: string }>({
   columns,
@@ -83,6 +91,8 @@ export function DataTable<T extends { id: string }>({
   emptyDescription,
   initialSort = [],
   initialHidden = {},
+  cardTitle,
+  cardLead,
 }: DataTableProps<T>) {
   const { t } = useT()
   const [sorting, setSorting] = useState<SortingState>(initialSort)
@@ -156,6 +166,73 @@ export function DataTable<T extends { id: string }>({
     toast.success(`${mapped.length} rows exported`)
   }
 
+  // Small screens have no clickable headers, so sorting gets its own control.
+  const sortOptions = table
+    .getAllLeafColumns()
+    .filter((c) => c.getCanSort() && c.getIsVisible() && typeof c.columnDef.header === 'string')
+    .map((c) => ({ value: c.id, label: `${t('common.sortBy')}: ${c.columnDef.header as string}` }))
+  const activeSort = sorting[0]
+
+  const emptyState = (
+    <Empty className="border-0 py-10">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <SearchIcon />
+        </EmptyMedia>
+        <EmptyTitle>{emptyTitle ?? (globalFilter ? t('common.noResults') : t('common.noData'))}</EmptyTitle>
+        <EmptyDescription>{emptyDescription ?? t('common.noResultsHint')}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  )
+
+  /** One row as a card: heading with its actions, then every other visible column as a labelled field. */
+  const renderCard = (row: Row<T>) => {
+    const cells = row.getVisibleCells()
+    const pick = (id?: string) => (id ? cells.find((c) => c.column.id === id) : undefined)
+    const fixed = ['select', 'actions', cardLead]
+    const titleId = cardTitle ?? cells.find((c) => !fixed.includes(c.column.id))?.column.id
+    const select = pick('select')
+    const actions = pick('actions')
+    const lead = pick(cardLead)
+    const title = pick(titleId)
+    const fields = cells.filter((c) => !fixed.includes(c.column.id) && c.column.id !== titleId)
+    return (
+      <li
+        key={row.id}
+        data-state={row.getIsSelected() ? 'selected' : undefined}
+        tabIndex={onRowClick ? 0 : undefined}
+        onClick={() => onRowClick?.(row.original)}
+        onKeyDown={(e) => {
+          if (onRowClick && e.key === 'Enter' && e.target === e.currentTarget) onRowClick(row.original)
+        }}
+        className={cn(
+          'rounded-xl border bg-card p-3.5 text-sm shadow-xs transition-colors data-[state=selected]:border-primary/50 data-[state=selected]:bg-primary/5',
+          onRowClick && 'cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted/50',
+        )}
+      >
+        <div className="flex items-start gap-3">
+          {select && <div className="flex h-5 items-center">{renderCell(select)}</div>}
+          {lead && <div className="shrink-0">{renderCell(lead)}</div>}
+          <div className="min-w-0 flex-1">{title && renderCell(title)}</div>
+          {actions && <div className="-me-1.5 -mt-1 shrink-0">{renderCell(actions)}</div>}
+        </div>
+        {fields.length > 0 && (
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3">
+            {fields.map((c) => {
+              const label = typeof c.column.columnDef.header === 'string' ? c.column.columnDef.header : null
+              return (
+                <div key={c.id} className={cn('min-w-0', !label && 'col-span-2')}>
+                  {label && <dt className="truncate text-[11px] font-medium text-muted-foreground">{label}</dt>}
+                  <dd className="mt-0.5 min-w-0 break-words">{renderCell(c)}</dd>
+                </div>
+              )
+            })}
+          </dl>
+        )}
+      </li>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -183,6 +260,26 @@ export function DataTable<T extends { id: string }>({
           )}
         </InputGroup>
         {filters}
+        {sortOptions.length > 0 && (
+          <div className="flex items-center gap-1 md:hidden">
+            <OptionSelect
+              className="h-8 w-44"
+              value={activeSort?.id ?? 'none'}
+              onValueChange={(v) => setSorting(v === 'none' ? [] : [{ id: v, desc: activeSort?.desc ?? true }])}
+              options={[{ value: 'none', label: `${t('common.sortBy')}: ${t('common.noSort')}` }, ...sortOptions]}
+              aria-label={t('common.sortBy')}
+            />
+            <Button
+              variant="outline"
+              size="icon-sm"
+              disabled={!activeSort}
+              onClick={() => activeSort && setSorting([{ ...activeSort, desc: !activeSort.desc }])}
+              aria-label={t('common.toggleSortDirection')}
+            >
+              {activeSort?.desc === false ? <ArrowUpIcon /> : <ArrowDownIcon />}
+            </Button>
+          </div>
+        )}
         <div className="ms-auto flex items-center gap-2">
           {selected.length > 0 && onBulkDelete && (
             <Button variant="destructive" size="sm" onClick={() => setConfirmOpen(true)}>
@@ -230,7 +327,27 @@ export function DataTable<T extends { id: string }>({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex flex-col gap-2 md:hidden">
+        {onBulkDelete && !isLoading && table.getRowModel().rows.length > 0 && (
+          <label className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+            <Checkbox
+              checked={table.getIsAllPageRowsSelected()}
+              indeterminate={table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()}
+              onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
+            />
+            {t('common.selectAll')}
+          </label>
+        )}
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
+        ) : table.getRowModel().rows.length === 0 ? (
+          <div className="rounded-xl border bg-card">{emptyState}</div>
+        ) : (
+          <ul className="flex flex-col gap-2">{table.getRowModel().rows.map(renderCard)}</ul>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border bg-card md:block">
         <Table>
           <TableHeader className="bg-muted/40">
             {table.getHeaderGroups().map((hg) => (
@@ -281,17 +398,7 @@ export function DataTable<T extends { id: string }>({
               ))
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={allColumns.length}>
-                  <Empty className="border-0 py-10">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <SearchIcon />
-                      </EmptyMedia>
-                      <EmptyTitle>{emptyTitle ?? (globalFilter ? t('common.noResults') : t('common.noData'))}</EmptyTitle>
-                      <EmptyDescription>{emptyDescription ?? t('common.noResultsHint')}</EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
+                <TableCell colSpan={allColumns.length}>{emptyState}</TableCell>
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
@@ -302,7 +409,7 @@ export function DataTable<T extends { id: string }>({
                   onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell key={cell.id}>{renderCell(cell)}</TableCell>
                   ))}
                 </TableRow>
               ))

@@ -365,6 +365,7 @@ export default function ExpensesPage() {
                 </CardContent>
               </Card>
               <DataTable
+                cardTitle="description"
                 columns={columns}
                 data={expenses}
                 exportName="expenses"

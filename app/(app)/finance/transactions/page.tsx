@@ -116,6 +116,7 @@ export default function TransactionsPage() {
         }
       />
       <DataTable
+        cardTitle="reference"
         columns={columns}
         data={rows}
         isLoading={isLoading}
