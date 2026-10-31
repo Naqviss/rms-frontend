@@ -33,7 +33,8 @@ interface FormDialogProps {
   fields: FieldDef[]
   initial: FormValues
   submitLabel?: string
-  onSubmit: (values: FormValues) => void | Promise<void>
+  /** Return `false` to keep the dialog open, e.g. after a validation error. */
+  onSubmit: (values: FormValues) => void | boolean | Promise<void | boolean>
   /** Live summary shown under the fields, computed from the values being edited. */
   preview?: (values: FormValues) => React.ReactNode
 }
@@ -63,9 +64,9 @@ export function FormDialog({ open, onOpenChange, title, description, fields, ini
     setSubmitting(true)
     const out: FormValues = {}
     for (const f of fields) out[f.name] = f.type === 'number' ? Number(values[f.name] ?? 0) : (values[f.name] ?? '')
-    await onSubmit(out)
+    const ok = await onSubmit(out)
     setSubmitting(false)
-    onOpenChange(false)
+    if (ok !== false) onOpenChange(false)
   }
 
   return (

@@ -8,6 +8,7 @@ import { employees } from '@/mocks/employees'
 import { orders, riders, tables } from '@/mocks/orders'
 import { expenseBudgets, recurringExpenses, taxRates, transactions } from '@/mocks/finance'
 import { recipeAccessLog, recipes } from '@/mocks/costing'
+import { deals, discounts } from '@/mocks/promotions'
 import { appUsers, devices, integrations, roles, syncRecords } from '@/mocks/platform'
 
 export const tenantService = createRepository('tenants', tenants)
@@ -27,6 +28,8 @@ export const riderService = createRepository('riders', riders)
 export const tableService = createRepository('tables', tables)
 export const transactionService = createRepository('transactions', transactions, '-v2')
 export const taxService = createRepository('tax-rates', taxRates)
+export const discountService = createRepository('discounts', discounts)
+export const dealService = createRepository('deals', deals)
 export const recurringExpenseService = createRepository('recurring-expenses', recurringExpenses)
 export const budgetService = createRepository('expense-budgets', expenseBudgets)
 export const recipeService = createRepository('recipes', recipes, '-v2')

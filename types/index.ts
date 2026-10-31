@@ -171,6 +171,8 @@ export interface OrderItem {
   unitPrice: number
   /** Names of the chosen options, e.g. ["Double patty", "Extra cheese"]. */
   options?: string[]
+  /** Set when the line is a deal; `productId` then holds the deal id. */
+  dealId?: ID
 }
 
 export type SalesChannel = 'dine-in' | 'takeaway' | 'own-delivery' | 'foodpanda' | 'website'
@@ -242,6 +244,8 @@ export interface Order extends Entity {
   delivery?: DeliveryInfo
   foodpanda?: FoodpandaInfo
   website?: WebsiteInfo
+  /** Discount applied from Discounts & Deals, if any. */
+  discountId?: ID
 }
 
 export type TableStatus = 'available' | 'occupied' | 'reserved'
@@ -412,6 +416,59 @@ export interface RecipeAccessEvent extends Entity {
   role: RoleId
   action: RecipeAccessAction
   at: string
+}
+
+/** When a discount or deal can be used. Empty values mean "no restriction". */
+export interface PromoSchedule {
+  /** yyyy-mm-dd, inclusive. */
+  startDate: string
+  endDate: string | null
+  /** Weekdays it runs on (0 = Sunday). Empty = every day. */
+  days: number[]
+  /** "HH:mm" window, e.g. a 15:00-18:00 happy hour. Both empty = all day. */
+  startTime: string
+  endTime: string
+  branchId: ID | 'all'
+  channel: SalesChannel | 'all'
+  active: boolean
+}
+
+export type DiscountKind = 'percent' | 'fixed'
+export type DiscountScope = 'order' | 'category' | 'product'
+
+export interface Discount extends Entity, PromoSchedule {
+  name: string
+  /** Promo code customers enter online. Empty for discounts staff apply at the POS. */
+  code: string
+  kind: DiscountKind
+  /** Percent off, or rupees off for a fixed discount. */
+  value: number
+  /** Most a percentage discount can take off, in rupees. 0 = no cap. */
+  maxAmount: number
+  /** Smallest qualifying amount (order subtotal, or the covered items' total), in rupees. */
+  minOrder: number
+  scope: DiscountScope
+  /** Category or product the discount covers when `scope` is not the whole order. */
+  targetId: ID | null
+  /** 0 = unlimited. */
+  usageLimit: number
+  used: number
+}
+
+export interface DealItem {
+  productId: ID
+  quantity: number
+}
+
+/** A combo of menu items sold together at one price. */
+export interface Deal extends Entity, PromoSchedule {
+  name: string
+  description: string
+  image: string
+  items: DealItem[]
+  price: number
+  featured: boolean
+  sold: number
 }
 
 export interface TaxRate extends Entity {

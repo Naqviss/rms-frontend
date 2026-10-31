@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 export interface Option {
   value: string
   label: string
+  disabled?: boolean
 }
 
 interface OptionSelectProps {
@@ -39,7 +40,7 @@ export function OptionSelect({
       <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>
           {options.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
+            <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
               {o.label}
             </SelectItem>
           ))}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { MinusIcon, PlusIcon, SearchIcon, ShoppingBagIcon, Trash2Icon } from 'lucide-react'
+import { GiftIcon, MinusIcon, PlusIcon, SearchIcon, ShoppingBagIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,15 +16,18 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { ProductOptionsDialog } from '@/components/menu/product-options-dialog'
-import { useCustomers, useCategories, useOrders, useProducts, useTables } from '@/hooks/use-data'
+import { useCustomers, useCategories, useDeals, useDiscounts, useOrders, useProducts, useTables } from '@/hooks/use-data'
 import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/format'
 import { hasOptions } from '@/lib/utils/options'
+import { dealValue, describeDiscount, discountFor, promoStatus, unavailableReason } from '@/lib/utils/promotions'
 import { currentBranchIds } from '@/mocks/branches'
 import { TAX_RATE } from '@/mocks/orders'
-import type { OrderItem, OrderType, PaymentMethod, Product } from '@/types'
+import type { Deal, OrderItem, OrderType, PaymentMethod, Product, SalesChannel } from '@/types'
+
+const channelFor: Record<OrderType, SalesChannel> = { 'dine-in': 'dine-in', takeaway: 'takeaway', delivery: 'own-delivery', online: 'website' }
 
 interface CartLine extends OrderItem {
   key: string
@@ -39,6 +42,8 @@ export default function PosPage() {
   const { data: customers } = useCustomers()
   const { data: tables, update: updateTable } = useTables()
   const { create: createOrder, data: orders } = useOrders()
+  const { data: deals, update: updateDeal } = useDeals()
+  const { data: discounts, update: updateDiscount } = useDiscounts()
 
   const [category, setCategory] = useState('all')
   const [query, setQuery] = useState('')
@@ -46,6 +51,8 @@ export default function PosPage() {
   const [orderType, setOrderType] = useState<OrderType>('dine-in')
   const [tableId, setTableId] = useState('')
   const [customerId, setCustomerId] = useState('walk-in')
+  /** 'none', 'manual' (staff-entered %), or a discount id. */
+  const [discountChoice, setDiscountChoice] = useState('none')
   const [discountPct, setDiscountPct] = useState(0)
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [customizing, setCustomizing] = useState<Product | null>(null)
@@ -61,8 +68,24 @@ export default function PosPage() {
 
   const freeTables = (tables ?? []).filter((x) => x.branchId === activeBranch && x.status === 'available')
 
+  const channel = channelFor[orderType]
+  const shownDeals = useMemo(
+    () => (deals ?? []).filter((d) => promoStatus(d) === 'live' && d.name.toLowerCase().includes(query.toLowerCase())),
+    [deals, query],
+  )
+
   const subtotal = cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0)
-  const discount = Math.round((subtotal * discountPct) / 100)
+  // Discounts the till can offer right now, each with what it would take off this cart (or why it can't be used).
+  const discountOptions = (discounts ?? [])
+    .filter((d) => promoStatus(d) === 'live')
+    .map((d) => {
+      const reason = unavailableReason(d, activeBranch, channel)
+      const result = reason ? { amount: 0, reason } : discountFor(d, cart, products ?? [])
+      return { discount: d, ...result }
+    })
+  const chosen = discountOptions.find((o) => o.discount.id === discountChoice)
+  const discount =
+    discountChoice === 'manual' ? Math.round((subtotal * discountPct) / 100) : chosen && !chosen.reason ? chosen.amount : 0
   const tax = Math.round((subtotal - discount) * TAX_RATE)
   const total = subtotal - discount + tax
 
@@ -79,6 +102,16 @@ export default function PosPage() {
       if (found) return prev.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l))
       return [...prev, { key, productId: p.id, name: p.name, quantity: 1, unitPrice, options: options.length ? options : undefined }]
     })
+  }
+
+  const addDeal = (d: Deal) => {
+    const key = `deal:${d.id}`
+    const contents = d.items.map((i) => `${i.quantity}× ${products?.find((p) => p.id === i.productId)?.name ?? 'item'}`)
+    setCart((prev) =>
+      prev.some((l) => l.key === key)
+        ? prev.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l))
+        : [...prev, { key, productId: d.id, dealId: d.id, name: d.name, quantity: 1, unitPrice: d.price, options: contents }],
+    )
   }
 
   const changeQty = (key: string, delta: number) =>
@@ -110,11 +143,18 @@ export default function PosPage() {
       createdAt: new Date().toISOString().slice(0, 19),
       notes: '',
       source: 'pos',
+      discountId: chosen && discount > 0 ? chosen.discount.id : undefined,
     })
     if (orderType === 'dine-in' && tableId) await updateTable(tableId, { status: 'occupied', orderId: order.id })
+    if (chosen && discount > 0) await updateDiscount(chosen.discount.id, { used: chosen.discount.used + 1 })
+    for (const l of cart) {
+      const deal = l.dealId ? deals?.find((d) => d.id === l.dealId) : undefined
+      if (deal) await updateDeal(deal.id, { sold: deal.sold + l.quantity })
+    }
     toast.success(`${t('orders.orderPlaced')} (${number})`)
     setCart([])
     setTableId('')
+    setDiscountChoice('none')
     setDiscountPct(0)
   }
 
@@ -139,6 +179,12 @@ export default function PosPage() {
                 className="w-max"
               >
                 <ToggleGroupItem value="all">{t('common.all')}</ToggleGroupItem>
+                {shownDeals.length > 0 && (
+                  <ToggleGroupItem value="deals" className="gap-1.5">
+                    <GiftIcon className="size-3.5" aria-hidden />
+                    {t('promo.deals')}
+                  </ToggleGroupItem>
+                )}
                 {(categories ?? []).map((c) => (
                   <ToggleGroupItem key={c.id} value={c.id}>
                     {c.name}
@@ -147,7 +193,42 @@ export default function PosPage() {
               </ToggleGroup>
             </ScrollArea>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
+          {category === 'deals' && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+              {shownDeals.map((d) => {
+                const reason = unavailableReason(d, activeBranch, channel)
+                const value = dealValue(d, products ?? [])
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => addDeal(d)}
+                    disabled={!!reason}
+                    className={cn(
+                      'flex gap-3 overflow-hidden rounded-xl border bg-card p-2.5 text-start transition hover:border-primary/60 hover:shadow-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                      reason && 'opacity-55',
+                    )}
+                  >
+                    <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                      <Image src={d.image} alt="" fill sizes="80px" className="object-cover" />
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="truncate text-sm font-medium">{d.name}</span>
+                      <span className="line-clamp-2 text-xs text-muted-foreground">
+                        {d.items.map((i) => `${i.quantity}× ${products?.find((p) => p.id === i.productId)?.name ?? 'item'}`).join(', ')}
+                      </span>
+                      <span className="mt-auto flex flex-wrap items-baseline gap-x-2 text-sm">
+                        <span className="font-semibold tabular-nums">{formatCurrency(d.price)}</span>
+                        {value.regular > d.price && <span className="text-xs text-muted-foreground tabular-nums line-through">{formatCurrency(value.regular)}</span>}
+                        {reason && <span className="text-xs font-medium text-warning-foreground dark:text-warning">{reason}</span>}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <div className={cn('grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4', category === 'deals' && 'hidden')}>
             {visible.map((p) => (
               <button
                 key={p.id}
@@ -250,20 +331,43 @@ export default function PosPage() {
               </ul>
             )}
             <Separator />
-            <div className="flex items-center justify-between gap-3">
-              <Label htmlFor="pos-discount" className="text-sm">
-                {t('orders.applyDiscount')} (%)
-              </Label>
-              <Input
-                id="pos-discount"
-                type="number"
-                min={0}
-                max={50}
-                inputMode="numeric"
-                className="h-8 w-20 text-end"
-                value={discountPct}
-                onChange={(e) => setDiscountPct(Math.min(50, Math.max(0, Number(e.target.value) || 0)))}
-              />
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="pos-discount-choice" className="shrink-0 text-sm">
+                  {t('orders.applyDiscount')}
+                </Label>
+                <OptionSelect
+                  id="pos-discount-choice"
+                  className="h-8 min-w-0 flex-1"
+                  value={discountChoice}
+                  onValueChange={setDiscountChoice}
+                  options={[
+                    { value: 'none', label: t('promo.noDiscount') },
+                    ...discountOptions.map((o) => ({
+                      value: o.discount.id,
+                      label: o.reason
+                        ? `${o.discount.name} — ${o.reason}`
+                        : `${o.discount.name} — ${o.amount ? `-${formatCurrency(o.amount)}` : describeDiscount(o.discount)}`,
+                      disabled: !!o.reason && o.discount.id !== discountChoice,
+                    })),
+                    { value: 'manual', label: t('promo.manual') },
+                  ]}
+                />
+                {discountChoice === 'manual' && (
+                  <Input
+                    id="pos-discount"
+                    type="number"
+                    min={0}
+                    max={50}
+                    inputMode="numeric"
+                    aria-label={`${t('promo.manual')} (max 50)`}
+                    className="h-8 w-16 shrink-0 text-end"
+                    value={discountPct}
+                    onChange={(e) => setDiscountPct(Math.min(50, Math.max(0, Number(e.target.value) || 0)))}
+                  />
+                )}
+              </div>
+              {chosen?.reason && <p className="text-xs text-warning-foreground dark:text-warning">{chosen.reason}: not applied.</p>}
             </div>
             <ToggleGroup
               value={[method]}
