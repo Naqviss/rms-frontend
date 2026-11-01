@@ -14,6 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { useOrders } from '@/hooks/use-data'
+import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDateTime } from '@/lib/utils/format'
@@ -21,6 +22,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils/format'
 export default function ReceiptsPage() {
   const { t } = useT()
   const { data } = useOrders()
+  const { inBranch } = useScope()
   const [paper, setPaper] = useState('80')
   const [businessName, setBusinessName] = useState('Dastarkhwan Restaurant')
   const [address, setAddress] = useState('MM Alam Road, Gulberg III, Lahore')
@@ -31,7 +33,7 @@ export default function ReceiptsPage() {
   const [showCashier, setShowCashier] = useState(true)
   const [orderId, setOrderId] = useState('')
 
-  const orders = (data ?? []).slice(0, 12)
+  const orders = inBranch(data ?? []).slice(0, 12)
   const order = orders.find((o) => o.id === orderId) ?? orders[0]
 
   return (

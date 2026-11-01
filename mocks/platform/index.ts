@@ -83,19 +83,19 @@ const V: PermissionAction[] = ['view']
 const N: PermissionAction[] = []
 
 function matrix(entries: Partial<Record<PermissionModule, PermissionAction[]>>): PermissionMatrix {
-  const modules: PermissionModule[] = ['dashboard', 'orders', 'inventory', 'menu', 'recipes', 'finance', 'reports', 'employees', 'customers', 'settings']
+  const modules: PermissionModule[] = ['dashboard', 'orders', 'delivery', 'website', 'inventory', 'menu', 'recipes', 'finance', 'reports', 'employees', 'customers', 'settings']
   return Object.fromEntries(modules.map((m) => [m, entries[m] ?? N])) as PermissionMatrix
 }
 
 export const roles: Role[] = [
-  { id: 'tenant-owner', name: 'Tenant Owner', description: 'Full access to every module and setting.', permissions: matrix({ dashboard: A, orders: A, inventory: A, menu: A, recipes: A, finance: A, reports: A, employees: A, customers: A, settings: A }) },
-  { id: 'administrator', name: 'Administrator', description: 'Manages operations, staff and configuration.', permissions: matrix({ dashboard: A, orders: A, inventory: A, menu: A, recipes: V, finance: VE, reports: V, employees: A, customers: A, settings: VE }) },
-  { id: 'branch-manager', name: 'Branch Manager', description: 'Runs day-to-day operations of assigned branches.', permissions: matrix({ dashboard: V, orders: A, inventory: VE, menu: VE, recipes: V, finance: V, reports: V, employees: VE, customers: VE }) },
-  { id: 'cashier', name: 'Cashier', description: 'Takes orders and payments at the counter.', permissions: matrix({ orders: VE, customers: VE, menu: V }) },
-  { id: 'waiter', name: 'Waiter', description: 'Creates dine-in orders and manages tables.', permissions: matrix({ orders: VE, menu: V }) },
-  { id: 'chef', name: 'Chef', description: 'Views kitchen queue and updates stock usage.', permissions: matrix({ orders: ['view', 'edit'], inventory: VE, menu: V, recipes: V }) },
-  { id: 'rider', name: 'Rider', description: 'Sees and updates assigned delivery orders.', permissions: matrix({ orders: ['view', 'edit'] }) },
-  { id: 'accountant', name: 'Accountant', description: 'Manages finance, tax and reports.', permissions: matrix({ dashboard: V, finance: A, reports: A, inventory: V, orders: V }) },
+  { id: 'tenant-owner', name: 'Tenant Owner', description: 'Full access to every module and setting.', permissions: matrix({ dashboard: A, orders: A, delivery: A, website: A, inventory: A, menu: A, recipes: A, finance: A, reports: A, employees: A, customers: A, settings: A }) },
+  { id: 'administrator', name: 'Administrator', description: 'Manages operations, staff and configuration.', permissions: matrix({ dashboard: A, orders: A, delivery: A, website: A, inventory: A, menu: A, recipes: V, finance: VE, reports: V, employees: A, customers: A, settings: VE }) },
+  { id: 'branch-manager', name: 'Branch Manager', description: 'Runs day-to-day operations of assigned branches.', permissions: matrix({ dashboard: V, orders: A, delivery: A, website: A, inventory: VE, menu: VE, recipes: V, finance: V, reports: V, employees: VE, customers: VE }) },
+  { id: 'cashier', name: 'Cashier', description: 'Takes orders and payments at the counter.', permissions: matrix({ orders: VE, delivery: VE, website: VE, customers: VE, menu: V }) },
+  { id: 'waiter', name: 'Waiter', description: 'Creates dine-in orders and manages tables.', permissions: matrix({ orders: VE }) },
+  { id: 'chef', name: 'Chef', description: 'Views kitchen queue and updates stock usage.', permissions: matrix({ orders: ['view', 'edit'], delivery: ['view', 'edit'], inventory: VE, recipes: V }) },
+  { id: 'rider', name: 'Rider', description: 'Sees and updates assigned delivery orders.', permissions: matrix({ orders: ['view', 'edit'], delivery: ['view', 'edit'], website: ['view', 'edit'] }) },
+  { id: 'accountant', name: 'Accountant', description: 'Manages finance, tax and reports.', permissions: matrix({ dashboard: V, finance: A, reports: A, inventory: V, orders: V, delivery: V, website: V }) },
 ]
 
 const palette = ['oklch(0.55 0.2 272)', 'oklch(0.6 0.15 150)', 'oklch(0.65 0.18 30)', 'oklch(0.55 0.15 200)', 'oklch(0.6 0.18 330)']
@@ -108,8 +108,9 @@ export const appUsers: AppUser[] = [
   { id: 'u5', name: 'Bilal Sheikh', email: 'bilal@zaiqakitchen.pk', role: 'branch-manager', branchIds: ['b3'], status: 'active', lastActive: isoDaysAgo(ref, 1, 22, 5), color: palette[4] },
   { id: 'u6', name: 'Kashif Ali', email: 'kashif@zaiqakitchen.pk', role: 'cashier', branchIds: ['b1'], status: 'active', lastActive: isoDaysAgo(ref, 0, 17, 52), color: palette[0] },
   { id: 'u7', name: 'Rabia Kamal', email: 'rabia@zaiqakitchen.pk', role: 'accountant', branchIds: ['b1', 'b2', 'b3'], status: 'active', lastActive: isoDaysAgo(ref, 0, 12, 20), color: palette[1] },
-  { id: 'u8', name: 'Imtiaz Hussain', email: 'imtiaz@zaiqakitchen.pk', role: 'chef', branchIds: ['b1'], status: 'inactive', lastActive: isoDaysAgo(ref, 12, 20, 0), color: palette[2] },
+  { id: 'u8', name: 'Imtiaz Hussain', email: 'imtiaz@zaiqakitchen.pk', role: 'chef', branchIds: ['b1'], status: 'active', lastActive: isoDaysAgo(ref, 0, 17, 20), color: palette[2] },
   { id: 'u9', name: 'Sidra Parveen', email: 'sidra@zaiqakitchen.pk', role: 'cashier', branchIds: ['b2'], status: 'invited', lastActive: isoDaysAgo(ref, 3, 9, 0), color: palette[3] },
+  { id: 'u10', name: 'Asad Mehmood', email: 'asad@zaiqakitchen.pk', role: 'waiter', branchIds: ['b1'], status: 'active', lastActive: isoDaysAgo(ref, 0, 17, 48), color: palette[4] },
 ]
 
 export const activityLog: ActivityLog[] = [

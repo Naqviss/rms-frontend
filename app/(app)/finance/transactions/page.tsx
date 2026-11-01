@@ -15,11 +15,10 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useTransactions } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
-import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDateTime } from '@/lib/utils/format'
-import { branchName, currentBranchIds } from '@/mocks/branches'
+import { branchName } from '@/mocks/branches'
 import type { Transaction, TransactionType } from '@/types'
 
 const types: TransactionType[] = ['income', 'expense', 'refund']
@@ -27,8 +26,7 @@ const types: TransactionType[] = ['income', 'expense', 'refund']
 export default function TransactionsPage() {
   const { t } = useT()
   const { data, isLoading, create, remove, removeMany } = useTransactions()
-  const { inBranch } = useScope()
-  const globalBranch = useAppStore((s) => s.branchId)
+  const { inBranch, primaryBranch } = useScope()
   const [type, setType] = useState('all')
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
@@ -97,7 +95,7 @@ export default function TransactionsPage() {
       amount: Number(v.amount),
       method: String(v.method) as Transaction['method'],
       date: new Date().toISOString().slice(0, 19),
-      branchId: globalBranch === 'all' ? currentBranchIds[0] : globalBranch,
+      branchId: primaryBranch,
       status: 'completed',
     })
     toast.success(t('common.created'))

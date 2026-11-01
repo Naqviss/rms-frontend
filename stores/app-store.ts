@@ -12,7 +12,8 @@ export type DatePreset = DateRange['preset']
 export const PRESET_DAYS: Record<DatePreset, number> = { today: 1, '7d': 7, '30d': 30, month: 15 }
 
 interface AppState {
-  branchId: string
+  /** Branches picked in the top bar; empty means every branch. */
+  branchIds: string[]
   language: Language
   sidebarCollapsed: boolean
   datePreset: DatePreset
@@ -23,7 +24,7 @@ interface AppState {
   cancelledAt: string | null
   /** Count tax collected as part of revenue and profit figures. */
   includeTax: boolean
-  setBranch: (id: string) => void
+  setBranches: (ids: string[]) => void
   setLanguage: (lang: Language) => void
   toggleSidebar: () => void
   setSidebarCollapsed: (v: boolean) => void
@@ -39,7 +40,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      branchId: 'all',
+      branchIds: [],
       language: 'en',
       sidebarCollapsed: false,
       datePreset: '30d',
@@ -49,7 +50,7 @@ export const useAppStore = create<AppState>()(
       lastSyncAt: `${config.referenceDate}T17:58:00`,
       cancelledAt: null,
       includeTax: false,
-      setBranch: (branchId) => set({ branchId }),
+      setBranches: (branchIds) => set({ branchIds }),
       setLanguage: (language) => set({ language }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -64,7 +65,7 @@ export const useAppStore = create<AppState>()(
     {
       name: `${config.storagePrefix}app`,
       partialize: (s) => ({
-        branchId: s.branchId,
+        branchIds: s.branchIds,
         language: s.language,
         sidebarCollapsed: s.sidebarCollapsed,
         datePreset: s.datePreset,

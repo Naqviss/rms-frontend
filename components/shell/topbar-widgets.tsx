@@ -8,6 +8,7 @@ import {
   BellIcon,
   CloudOffIcon,
   CheckCheckIcon,
+  ChevronDownIcon,
   CloudIcon,
   LanguagesIcon,
   LifeBuoyIcon,
@@ -25,6 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -35,42 +37,66 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAccess } from '@/hooks/use-access'
+import { useScope } from '@/hooks/use-scope'
 import { useAppStore } from '@/stores/app-store'
-import { useAuthStore } from '@/stores/auth-store'
+import { useAccount, useAuthStore } from '@/stores/auth-store'
 import { useT } from '@/lib/i18n/use-t'
 import { languageMeta } from '@/lib/i18n/dictionary'
-import { currentTenantBranches } from '@/mocks/branches'
+import { branchName, currentTenantBranches } from '@/mocks/branches'
 import { notifications as seedNotifications, roles } from '@/mocks/platform'
-import { appUsers } from '@/mocks/platform'
 import { formatRelative, initials } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { RoleId } from '@/types'
 
 export function BranchSwitcher() {
   const { t } = useT()
-  const branchId = useAppStore((s) => s.branchId)
-  const setBranch = useAppStore((s) => s.setBranch)
-  const items = [
-    { value: 'all', label: t('shell.allBranches') },
-    ...currentTenantBranches.map((b) => ({ value: b.id, label: b.name })),
-  ]
+  const setBranches = useAppStore((s) => s.setBranches)
+  const { branchIds, allBranches } = useScope()
+  const { owner, user } = useAccount()
+  // The owner can look across every branch; staff only pick between the branches they work in.
+  const available = currentTenantBranches.filter((b) => owner || user.branchIds.includes(b.id))
+
+  const toggle = (id: string, on: boolean) => {
+    const next = available.map((b) => b.id).filter((b) => (b === id ? on : branchIds.includes(b)))
+    if (!next.length) return
+    setBranches(owner && next.length === currentTenantBranches.length ? [] : next)
+  }
+
+  const label =
+    owner && allBranches
+      ? t('shell.allBranches')
+      : branchIds.length === 1
+        ? branchName(branchIds[0])
+        : `${branchIds.length} ${t('shell.branchesCount')}`
+
   return (
-    <Select items={items} value={branchId} onValueChange={(v) => v && setBranch(v)}>
-      <SelectTrigger className="hidden h-9 w-44 sm:flex lg:w-52" aria-label={t('shell.branch')}>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" className="hidden h-9 w-44 justify-start gap-2 px-3 font-normal sm:flex lg:w-52" aria-label={t('shell.branch')} />}
+      >
         <StoreIcon className="size-4 text-muted-foreground" aria-hidden />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false}>
-        <SelectGroup>
-          {items.map((i) => (
-            <SelectItem key={i.value} value={i.value}>
-              {i.label}
-            </SelectItem>
+        <span className="flex-1 truncate text-start">{label}</span>
+        <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuGroup>
+          {owner && (
+            <>
+              <DropdownMenuCheckboxItem checked={allBranches} onCheckedChange={(c) => c && setBranches([])}>
+                {t('shell.allBranches')}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {available.map((b) => (
+            <DropdownMenuCheckboxItem key={b.id} checked={branchIds.includes(b.id)} onCheckedChange={(c) => toggle(b.id, c)}>
+              {b.name}
+            </DropdownMenuCheckboxItem>
           ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -166,11 +192,11 @@ export function NotificationsMenu() {
 export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
   const { t, td } = useT()
   const { theme, setTheme } = useTheme()
-  const role = useAppStore((s) => s.role)
+  const { role } = useAccess()
   const setRole = useAppStore((s) => s.setRole)
   const logout = useAuthStore((s) => s.logout)
   const router = useRouter()
-  const user = appUsers[0]
+  const { user, owner } = useAccount()
 
   return (
     <DropdownMenu>
@@ -190,17 +216,21 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
             <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>{t('shell.demoRole')}</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as RoleId)}>
-            {roles.map((r) => (
-              <DropdownMenuRadioItem key={r.id} value={r.id}>
-                {td(`role.${r.id}`, r.name)}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
+        {owner && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t('shell.demoRole')}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as RoleId)}>
+                {roles.map((r) => (
+                  <DropdownMenuRadioItem key={r.id} value={r.id}>
+                    {td(`role.${r.id}`, r.name)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t('shell.theme')}</DropdownMenuLabel>
@@ -218,12 +248,16 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem render={<Link href="/settings" />}>
-            <UserIcon /> {t('shell.profile')}
-          </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href={mode === 'admin' ? '/dashboard' : '/admin/tenants'} />}>
-            <ShieldCheckIcon /> {mode === 'admin' ? t('shell.backToApp') : t('shell.superAdmin')}
-          </DropdownMenuItem>
+          {owner && (
+            <>
+              <DropdownMenuItem render={<Link href="/settings" />}>
+                <UserIcon /> {t('shell.profile')}
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href={mode === 'admin' ? '/dashboard' : '/admin/tenants'} />}>
+                <ShieldCheckIcon /> {mode === 'admin' ? t('shell.backToApp') : t('shell.superAdmin')}
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem render={<a href="https://vercel.com/help" target="_blank" rel="noreferrer" />}>
             <LifeBuoyIcon /> {t('shell.help')}
           </DropdownMenuItem>

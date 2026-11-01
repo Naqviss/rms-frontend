@@ -72,13 +72,13 @@ export const appNav: NavGroup[] = [
         href: '/delivery',
         label: 'nav.delivery',
         icon: Bike,
-        module: 'orders',
+        module: 'delivery',
         children: [
           { href: '/delivery', label: 'nav.deliveryBoard' },
           { href: '/delivery/riders', label: 'nav.riders' },
         ],
       },
-      { href: '/website', label: 'nav.websiteOrders', icon: Globe, module: 'orders' },
+      { href: '/website', label: 'nav.websiteOrders', icon: Globe, module: 'website' },
       {
         href: '/inventory',
         label: 'nav.inventory',

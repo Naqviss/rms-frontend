@@ -17,13 +17,12 @@ import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { ProductOptionsDialog } from '@/components/menu/product-options-dialog'
 import { useCustomers, useCategories, useDeals, useDiscounts, useOrders, useProducts, useTables } from '@/hooks/use-data'
-import { useAppStore } from '@/stores/app-store'
+import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/format'
 import { hasOptions } from '@/lib/utils/options'
 import { dealValue, describeDiscount, discountFor, promoStatus, unavailableReason } from '@/lib/utils/promotions'
-import { currentBranchIds } from '@/mocks/branches'
 import { TAX_RATE } from '@/mocks/orders'
 import type { Deal, OrderItem, OrderType, PaymentMethod, Product, SalesChannel } from '@/types'
 
@@ -35,8 +34,8 @@ interface CartLine extends OrderItem {
 
 export default function PosPage() {
   const { t, td } = useT()
-  const branchId = useAppStore((s) => s.branchId)
-  const activeBranch = branchId === 'all' ? currentBranchIds[0] : branchId
+  // An order is rung up at one branch: the first of those picked in the top bar.
+  const { primaryBranch: activeBranch } = useScope()
   const { data: products } = useProducts()
   const { data: categories } = useCategories()
   const { data: customers } = useCustomers()

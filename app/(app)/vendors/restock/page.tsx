@@ -13,11 +13,10 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useInventory, usePurchaseOrders, useVendors } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
-import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { stockStatus } from '@/lib/utils/inventory'
-import { branchName, currentBranchIds } from '@/mocks/branches'
+import { branchName } from '@/mocks/branches'
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types'
 
 export default function PurchaseOrdersPage() {
@@ -25,8 +24,7 @@ export default function PurchaseOrdersPage() {
   const { data, isLoading, create, update } = usePurchaseOrders()
   const { data: vendors } = useVendors()
   const { data: inventory } = useInventory()
-  const { inBranch } = useScope()
-  const globalBranch = useAppStore((s) => s.branchId)
+  const { inBranch, primaryBranch } = useScope()
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState('all')
 
@@ -101,7 +99,7 @@ export default function PurchaseOrdersPage() {
       total: Math.round(quantity * item.costPerUnit),
       status: 'draft',
       createdAt: new Date().toISOString().slice(0, 19),
-      branchId: globalBranch === 'all' ? currentBranchIds[0] : globalBranch,
+      branchId: primaryBranch,
     })
     toast.success(t('common.created'))
   }

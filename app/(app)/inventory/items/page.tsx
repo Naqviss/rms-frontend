@@ -14,11 +14,10 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useInventory, useStockMovements, useVendors } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
-import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { stockStatus, stockValue } from '@/lib/utils/inventory'
-import { branchName, currentBranchIds } from '@/mocks/branches'
+import { branchName } from '@/mocks/branches'
 import type { InventoryItem } from '@/types'
 
 type Mode = { kind: 'edit'; item: InventoryItem } | { kind: 'create' } | { kind: 'adjust'; item: InventoryItem } | null
@@ -28,8 +27,7 @@ export default function StockItemsPage() {
   const { data, isLoading, create, update, remove, removeMany } = useInventory()
   const { create: logMovement } = useStockMovements()
   const { data: vendors } = useVendors()
-  const { inBranch } = useScope()
-  const globalBranch = useAppStore((s) => s.branchId)
+  const { inBranch, primaryBranch } = useScope()
   const [mode, setMode] = useState<Mode>(null)
   const [deleting, setDeleting] = useState<InventoryItem | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -144,7 +142,7 @@ export default function StockItemsPage() {
     } else {
       await create({
         ...patch,
-        branchId: globalBranch === 'all' ? currentBranchIds[0] : globalBranch,
+        branchId: primaryBranch,
         kind: 'ingredient',
         image: '/food/desi.jpg',
       })

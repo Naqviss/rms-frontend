@@ -20,15 +20,16 @@ import {
 } from '@/components/shell/topbar-widgets'
 import { useAccess } from '@/hooks/use-access'
 import { useAppStore } from '@/stores/app-store'
-import { useAuthHydrated, useAuthStore } from '@/stores/auth-store'
+import { useAccount, useAuthHydrated, useAuthStore } from '@/stores/auth-store'
 import { useT } from '@/lib/i18n/use-t'
 import { appNav, flattenNav } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 
 function Brand({ collapsed, mode }: { collapsed?: boolean; mode: 'app' | 'admin' }) {
   const { t } = useT()
+  const { home } = useAccount()
   return (
-    <Link href={mode === 'admin' ? '/admin/tenants' : '/dashboard'} className="flex items-center gap-2.5 px-4 py-4">
+    <Link href={mode === 'admin' ? '/admin/tenants' : home} className="flex items-center gap-2.5 px-4 py-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
         <UtensilsCrossedIcon className="size-5" aria-hidden />
       </span>
@@ -46,8 +47,10 @@ function Brand({ collapsed, mode }: { collapsed?: boolean; mode: 'app' | 'admin'
 
 function AccessGate({ children, mode }: { children: React.ReactNode; mode: 'app' | 'admin' }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { t } = useT()
   const { stateFor } = useAccess()
+  const { owner, home } = useAccount()
 
   const state = useMemo(() => {
     if (mode === 'admin') return 'allowed' as const
@@ -57,7 +60,14 @@ function AccessGate({ children, mode }: { children: React.ReactNode; mode: 'app'
     return match ? stateFor(match.item) : ('allowed' as const)
   }, [mode, pathname, stateFor])
 
+  // Staff accounts never see a dead end; send them back to their own screen instead.
+  const bounce = state === 'forbidden' && !owner
+  useEffect(() => {
+    if (bounce) router.replace(home)
+  }, [bounce, home, router])
+
   if (state === 'allowed') return <>{children}</>
+  if (bounce) return null
 
   const locked = state === 'locked'
   return (
@@ -73,7 +83,7 @@ function AccessGate({ children, mode }: { children: React.ReactNode; mode: 'app'
             {t('shell.upgrade')}
           </Button>
         ) : (
-          <Button variant="outline" render={<Link href="/dashboard" />} nativeButton={false}>
+          <Button variant="outline" render={<Link href={home} />} nativeButton={false}>
             {t('nav.dashboard')}
           </Button>
         )}
@@ -88,10 +98,20 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const hydrated = useAuthHydrated()
   const username = useAuthStore((s) => s.username)
+  const { owner, user } = useAccount()
+  const branchIds = useAppStore((s) => s.branchIds)
+  const setBranches = useAppStore((s) => s.setBranches)
 
   useEffect(() => {
     if (hydrated && !username) router.replace(`/login?next=${encodeURIComponent(pathname)}`)
   }, [hydrated, username, pathname, router])
+
+  // Staff only work in the branches they are assigned to.
+  useEffect(() => {
+    if (!hydrated || !username || owner) return
+    const allowed = branchIds.filter((id) => user.branchIds.includes(id))
+    if (!allowed.length || allowed.length !== branchIds.length) setBranches(allowed.length ? allowed : user.branchIds)
+  }, [hydrated, username, owner, user, branchIds, setBranches])
 
   if (!hydrated || !username) {
     return (

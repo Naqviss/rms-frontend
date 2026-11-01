@@ -9,11 +9,11 @@ import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useOrders, useTables } from '@/hooks/use-data'
-import { useAppStore } from '@/stores/app-store'
+import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/format'
-import { branchName, currentBranchIds } from '@/mocks/branches'
+import { branchName } from '@/mocks/branches'
 import type { DiningTable, TableStatus } from '@/types'
 
 const tone: Record<TableStatus, string> = {
@@ -24,9 +24,10 @@ const tone: Record<TableStatus, string> = {
 
 export default function TablesPage() {
   const { t, td } = useT()
-  const globalBranch = useAppStore((s) => s.branchId)
+  const { branchIds, primaryBranch } = useScope()
   const [localBranch, setLocalBranch] = useState<string | null>(null)
-  const branchId = localBranch ?? (globalBranch === 'all' ? currentBranchIds[0] : globalBranch)
+  // The floor plan shows one branch at a time, chosen from those picked in the top bar.
+  const branchId = localBranch && branchIds.includes(localBranch) ? localBranch : primaryBranch
   const { data: tables, isLoading, update } = useTables()
   const { data: orders } = useOrders()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -53,7 +54,7 @@ export default function TablesPage() {
             value={branchId}
             onValueChange={setLocalBranch}
             aria-label={t('common.branch')}
-            options={currentBranchIds.map((id) => ({ value: id, label: branchName(id) }))}
+            options={branchIds.map((id) => ({ value: id, label: branchName(id) }))}
           />
         }
       />

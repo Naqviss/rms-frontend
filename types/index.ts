@@ -558,6 +558,8 @@ export type RoleId =
 export type PermissionModule =
   | 'dashboard'
   | 'orders'
+  | 'delivery'
+  | 'website'
   | 'inventory'
   | 'menu'
   | 'recipes'

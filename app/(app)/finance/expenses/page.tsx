@@ -23,13 +23,12 @@ import { BudgetsPanel } from '@/components/expenses/budgets-panel'
 import { RecurringPanel } from '@/components/expenses/recurring-panel'
 import { useBudgets, useRecurringExpenses, useTransactions } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
-import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { config } from '@/lib/config'
 import { cn } from '@/lib/utils'
 import { budgetState, daysUntil, EXPENSE_CATEGORIES, monthProgress } from '@/lib/utils/expenses'
 import { formatCompactCurrency, formatCurrency, formatDateTime, formatPercent } from '@/lib/utils/format'
-import { branchName, currentBranchIds, currentTenantBranches } from '@/mocks/branches'
+import { branchName, currentTenantBranches } from '@/mocks/branches'
 import type { Transaction } from '@/types'
 
 /** Mock data is anchored to a fixed trading day; "today" means that day everywhere in the app. */
@@ -44,14 +43,13 @@ export default function ExpensesPage() {
   const { data: txData, isLoading, create, update, remove, removeMany } = useTransactions()
   const { data: budgets } = useBudgets()
   const { data: recurring } = useRecurringExpenses()
-  const { inBranch, inRange, preset } = useScope()
-  const globalBranch = useAppStore((s) => s.branchId)
+  const { inBranch, inRange, preset, branchIds, allBranches, primaryBranch } = useScope()
   const [tab, setTab] = useState<Tab>('log')
   const [category, setCategory] = useState('all')
   const [status, setStatus] = useState('all')
   const [editing, setEditing] = useState<Transaction | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
-  const defaultBranch = globalBranch === 'all' ? currentBranchIds[0] : globalBranch
+  const defaultBranch = primaryBranch
 
   const branchTx = useMemo(() => inBranch(txData ?? []), [txData, inBranch])
   const periodTx = useMemo(() => inRange(branchTx, (x) => x.date), [branchTx, inRange])
@@ -95,7 +93,7 @@ export default function ExpensesPage() {
 
   const budgetTotal = (budgets ?? []).reduce((s, b) => s + b.monthly, 0)
   const overBudget = (budgets ?? []).filter((b) => budgetState(month.spend.get(b.category) ?? 0, b.monthly) === 'over')
-  const activeRecurring = (recurring ?? []).filter((r) => r.active && (globalBranch === 'all' || r.branchId === globalBranch))
+  const activeRecurring = (recurring ?? []).filter((r) => r.active && (allBranches || branchIds.includes(r.branchId)))
   const dueSoon = activeRecurring.filter((r) => daysUntil(r.nextDue, TODAY) <= 7)
   const overdue = activeRecurring.filter((r) => daysUntil(r.nextDue, TODAY) < 0)
 

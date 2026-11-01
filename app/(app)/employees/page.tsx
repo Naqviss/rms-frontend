@@ -16,7 +16,6 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useEmployees } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
-import { useAppStore } from '@/stores/app-store'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate, initials, titleCase } from '@/lib/utils/format'
 import { branchName, currentTenantBranches } from '@/mocks/branches'
@@ -27,8 +26,7 @@ const employeeRoles: EmployeeRole[] = ['admin', 'manager', 'cashier', 'waiter', 
 export default function EmployeesPage() {
   const { t } = useT()
   const { data, isLoading, create, update, remove, removeMany } = useEmployees()
-  const { inBranch } = useScope()
-  const globalBranch = useAppStore((s) => s.branchId)
+  const { inBranch, primaryBranch } = useScope()
   const [role, setRole] = useState('all')
   const [editing, setEditing] = useState<Employee | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Employee | null>(null)
@@ -155,7 +153,7 @@ export default function EmployeesPage() {
       : {
           name: '',
           role: 'waiter',
-          branchId: globalBranch === 'all' ? currentTenantBranches[0].id : globalBranch,
+          branchId: primaryBranch,
           phone: '',
           email: '',
           payType: 'monthly',

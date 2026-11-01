@@ -3,7 +3,18 @@
 import { Suspense, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertCircleIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LockIcon, UserIcon, UtensilsCrossedIcon } from 'lucide-react'
+import {
+  AlertCircleIcon,
+  ChefHatIcon,
+  ConciergeBellIcon,
+  EyeIcon,
+  EyeOffIcon,
+  LockIcon,
+  ReceiptIcon,
+  ShieldCheckIcon,
+  UserIcon,
+  UtensilsCrossedIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -12,11 +23,20 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '
 import { Spinner } from '@/components/ui/spinner'
 import { LanguageToggle } from '@/components/shell/topbar-widgets'
 import { useT } from '@/lib/i18n/use-t'
-import { useAuthHydrated, useAuthStore } from '@/stores/auth-store'
+import { cn } from '@/lib/utils'
+import { accountFor, demoAccounts, useAuthHydrated, useAuthStore } from '@/stores/auth-store'
+import type { TranslationKey } from '@/lib/i18n/dictionary'
 
 /** Only allow in-app paths so `?next=` cannot bounce the user to another site. */
 function safeNext(value: string | null) {
-  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/login') ? value : '/dashboard'
+  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/login') ? value : null
+}
+
+const accountMeta: Record<string, { label: TranslationKey; icon: typeof UserIcon }> = {
+  admin: { label: 'auth.account.owner', icon: ShieldCheckIcon },
+  kitchen: { label: 'auth.account.kitchen', icon: ChefHatIcon },
+  waiter: { label: 'auth.account.waiter', icon: ConciergeBellIcon },
+  counter: { label: 'auth.account.counter', icon: ReceiptIcon },
 }
 
 function LoginForm() {
@@ -24,7 +44,7 @@ function LoginForm() {
   const router = useRouter()
   const next = safeNext(useSearchParams().get('next'))
   const hydrated = useAuthHydrated()
-  const signedIn = useAuthStore((s) => !!s.username)
+  const signedInAs = useAuthStore((s) => accountFor(s.username))
   const login = useAuthStore((s) => s.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -32,9 +52,10 @@ function LoginForm() {
   const [error, setError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // Without an explicit `?next=`, every account lands on its own screen.
   useEffect(() => {
-    if (hydrated && signedIn) router.replace(next)
-  }, [hydrated, signedIn, next, router])
+    if (hydrated && signedInAs) router.replace(next ?? signedInAs.home)
+  }, [hydrated, signedInAs, next, router])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,9 +63,10 @@ function LoginForm() {
     setError(false)
     // Small pause so the button state is visible, like a real network round trip.
     await new Promise((r) => setTimeout(r, 350))
-    if (login(username, password)) {
+    const account = login(username, password)
+    if (account) {
       toast.success(t('auth.signedIn'))
-      router.replace(next)
+      router.replace(next ?? account.home)
     } else {
       setError(true)
       setSubmitting(false)
@@ -111,26 +133,42 @@ function LoginForm() {
         {submitting && <Spinner data-icon="inline-start" />}
         {t('auth.signIn')}
       </Button>
-      <button
-        type="button"
-        onClick={() => {
-          setUsername('admin')
-          setPassword('admin')
-          setError(false)
-        }}
-        className="flex items-center gap-3 rounded-lg border border-dashed bg-muted/40 p-3 text-start text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <KeyRoundIcon className="size-4" aria-hidden />
-        </span>
-        <span className="min-w-0">
-          <span className="block font-medium">{t('auth.demo')}</span>
-          <span className="block text-xs text-muted-foreground">
-            {t('auth.username')}: <code className="font-mono text-foreground">admin</code> · {t('auth.password')}:{' '}
-            <code className="font-mono text-foreground">admin</code>
-          </span>
-        </span>
-      </button>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{t('auth.demoAccounts')}</p>
+        <div className="grid grid-cols-2 gap-2">
+          {demoAccounts.map((a) => {
+            const meta = accountMeta[a.username]
+            const Icon = meta.icon
+            const selected = username === a.username
+            return (
+              <button
+                key={a.username}
+                type="button"
+                onClick={() => {
+                  setUsername(a.username)
+                  setPassword(a.password)
+                  setError(false)
+                }}
+                aria-pressed={selected}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-lg border border-dashed bg-muted/40 p-2.5 text-start text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                  selected && 'border-solid border-primary bg-primary/5',
+                )}
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium">{t(meta.label)}</span>
+                  <span className="block truncate font-mono text-xs text-muted-foreground">
+                    {a.username} / {a.password}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </form>
   )
 }
