@@ -28,14 +28,14 @@ import { formatCompactCurrency, formatCurrency, formatNumber, formatPercent } fr
 import { dealValue, describeSchedule, PROMO_STATUS, promoStatus, type PromoStatus } from '@/lib/utils/promotions'
 import type { Deal, DealItem, Product } from '@/types'
 
-/** Margin below this share of the deal price is flagged, since combos are already discounted. */
+/** Margin below this share of the bundle price is flagged; grocery margins are thin and bundles are already discounted. */
 const THIN_MARGIN = 45
 
 const NEW_DEAL: Omit<Deal, 'id'> = {
   ...NEW_SCHEDULE,
   name: '',
   description: '',
-  image: '/food/burgers.png',
+  image: '/mart/staples.svg',
   items: [],
   price: 0,
   featured: false,
@@ -180,7 +180,7 @@ export default function DealsPage() {
 
   const save = async (v: FormValues) => {
     if (items.length === 0) {
-      toast.error('Add at least one item to the deal')
+      toast.error('Add at least one product to the bundle')
       return false
     }
     const patch = {
@@ -221,10 +221,10 @@ export default function DealsPage() {
       />
       <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Live deals" value={formatNumber(stats.live)} icon={GiftIcon} tone="success" />
-        <StatCard label="Deals sold" value={formatNumber(stats.sold)} icon={ShoppingBagIcon} hint="All time" />
-        <StatCard label="Deal revenue" value={formatCompactCurrency(stats.revenue)} icon={WalletIcon} />
-        <StatCard label="Avg. customer saving" value={formatPercent(stats.avgSaving)} icon={BadgePercentIcon} hint="Across live deals vs. menu prices" />
+        <StatCard label="Live bundles" value={formatNumber(stats.live)} icon={GiftIcon} tone="success" />
+        <StatCard label="Bundles sold" value={formatNumber(stats.sold)} icon={ShoppingBagIcon} hint="All time" />
+        <StatCard label="Bundle revenue" value={formatCompactCurrency(stats.revenue)} icon={WalletIcon} />
+        <StatCard label="Avg. customer saving" value={formatPercent(stats.avgSaving)} icon={BadgePercentIcon} hint="Across live bundles vs. shelf prices" />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -289,7 +289,7 @@ export default function DealsPage() {
         title={editing === 'new' ? t('promo.addDeal') : t('common.edit')}
         fields={[
           { name: 'name', label: t('common.name'), required: true, placeholder: 'e.g. Family Feast' },
-          { name: 'price', label: 'Deal price (Rs)', type: 'number', required: true },
+          { name: 'price', label: 'Bundle price (Rs)', type: 'number', required: true },
           { name: 'description', label: t('common.description'), type: 'textarea', wide: true },
           {
             name: 'image',
@@ -309,7 +309,7 @@ export default function DealsPage() {
               <DealItemsEditor items={items} products={products} onChange={setItems} />
               <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted/60 p-3 text-sm sm:grid-cols-4">
                 {[
-                  { label: 'Menu price', value: formatCurrency(value.regular) },
+                  { label: 'Shelf price', value: formatCurrency(value.regular) },
                   { label: 'Customer saves', value: `${formatCurrency(Math.max(0, value.saving))} (${formatPercent(Math.max(0, value.savingPct))})` },
                   { label: 'Item cost', value: formatCurrency(value.cost) },
                   { label: 'Margin', value: formatPercent(value.margin), warn: value.margin < THIN_MARGIN },
@@ -320,7 +320,7 @@ export default function DealsPage() {
                   </div>
                 ))}
               </dl>
-              {value.saving < 0 && <p className="text-xs text-destructive">The deal costs more than buying the items separately.</p>}
+              {value.saving < 0 && <p className="text-xs text-destructive">The bundle costs more than buying the items separately.</p>}
             </div>
           )
         }}

@@ -23,11 +23,10 @@ const option = (name = '', price = 0): DraftOption => ({ key: newId('o'), name, 
 
 /** Starting points for the most common groups; the owner renames and reprices from there. */
 const PRESETS: { name: string; type: ProductOptionGroup['type']; options: [string, number][] }[] = [
-  { name: 'Size', type: 'single', options: [['Regular', 0], ['Large', 250]] },
-  { name: 'Patty', type: 'single', options: [['Single patty', 0], ['Double patty', 350]] },
-  { name: 'Make it a meal', type: 'single', options: [['Item only', 0], ['With fries', 200], ['Meal: fries + drink', 350]] },
-  { name: 'Extras', type: 'multiple', options: [['Extra cheese', 80]] },
-  { name: 'Sauces', type: 'multiple', options: [['Garlic mayo', 40]] },
+  { name: 'Size', type: 'single', options: [['Regular', 0], ['Large', 150]] },
+  { name: 'Pack', type: 'single', options: [['Single', 0], ['Pack of 3', 300], ['Pack of 6', 560]] },
+  { name: 'Flavour', type: 'single', options: [['Original', 0], ['Masala', 0]] },
+  { name: 'Add-ons', type: 'multiple', options: [['Gift wrap', 100]] },
 ]
 
 const TYPE_OPTIONS = [
@@ -124,7 +123,7 @@ export function OptionGroupsEditor({ product, onOpenChange, onSave }: OptionGrou
                       <Input
                         className="h-9 min-w-40 flex-1 font-medium"
                         aria-label={`Name of group ${gi + 1}`}
-                        placeholder="Group name, e.g. Patty"
+                        placeholder="Group name, e.g. Pack"
                         value={g.name}
                         onChange={(e) => setGroup(g.id, { name: e.target.value })}
                       />
@@ -164,7 +163,7 @@ export function OptionGroupsEditor({ product, onOpenChange, onSave }: OptionGrou
                           <Input
                             className="h-8 flex-1"
                             aria-label={`Option ${oi + 1} in ${g.name || `group ${gi + 1}`}`}
-                            placeholder={g.type === 'single' ? 'e.g. Double patty' : 'e.g. Extra cheese'}
+                            placeholder={g.type === 'single' ? 'e.g. Pack of 6' : 'e.g. Gift wrap'}
                             value={o.name}
                             onChange={(e) => setOption(g.id, o.key, { name: e.target.value })}
                           />

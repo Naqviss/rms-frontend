@@ -388,7 +388,7 @@ export default function PosPage() {
               {t('orders.cart')}
               {itemCount > 0 && (
                 <span className="ms-auto text-xs font-normal text-muted-foreground tabular-nums">
-                  {itemCount} {t('orders.items')}
+                  {itemCount} {itemCount === 1 ? t('orders.item') : t('orders.items')}
                 </span>
               )}
             </CardTitle>

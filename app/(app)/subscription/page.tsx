@@ -30,7 +30,7 @@ export default function SubscriptionPage() {
   const usage = [
     { label: t('nav.branches'), used: currentTenantBranches.length, limit: current.limits.branches },
     { label: t('nav.users'), used: users?.length ?? 0, limit: current.limits.users },
-    { label: t('nav.menu'), used: products?.length ?? 0, limit: current.limits.products },
+    { label: t('nav.products'), used: products?.length ?? 0, limit: current.limits.products },
   ]
   const renewal = new Date()
   renewal.setMonth(renewal.getMonth() + 1)

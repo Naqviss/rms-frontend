@@ -37,10 +37,10 @@ export default function BranchesPage() {
           manager: editing.manager,
           opensAt: editing.opensAt,
           closesAt: editing.closesAt,
-          seats: editing.seats,
+          counters: editing.counters,
           status: editing.status,
         }
-      : { name: '', city: 'Lahore', address: '', phone: '', email: '', manager: '', opensAt: '10:00', closesAt: '23:00', seats: 40, status: 'open' }
+      : { name: '', city: 'Lahore', address: '', phone: '', email: '', manager: '', opensAt: '08:00', closesAt: '23:00', counters: 2, status: 'open' }
 
   const save = async (v: FormValues) => {
     const patch = {
@@ -52,7 +52,7 @@ export default function BranchesPage() {
       manager: String(v.manager),
       opensAt: String(v.opensAt),
       closesAt: String(v.closesAt),
-      seats: Number(v.seats),
+      counters: Number(v.counters),
       status: String(v.status) as Branch['status'],
     }
     if (editing && editing !== 'new') {
@@ -131,7 +131,7 @@ export default function BranchesPage() {
                       {staff} {t('nav.employees').toLowerCase()}
                     </Badge>
                     <Badge variant="outline">
-                      {b.seats} {t('branches.seats')}
+                      {b.counters} {t('branches.counters')}
                     </Badge>
                   </div>
                 </CardContent>
@@ -153,7 +153,7 @@ export default function BranchesPage() {
           { name: 'email', label: t('common.email'), type: 'email' },
           { name: 'opensAt', label: t('branches.opensAt'), type: 'time' },
           { name: 'closesAt', label: t('branches.closesAt'), type: 'time' },
-          { name: 'seats', label: t('branches.seats'), type: 'number' },
+          { name: 'counters', label: t('branches.counters'), type: 'number' },
           {
             name: 'status',
             label: t('common.status'),

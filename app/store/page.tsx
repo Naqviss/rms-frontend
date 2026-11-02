@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Storefront } from '@/components/store/storefront'
 
 export const metadata: Metadata = {
-  title: 'Order food online',
+  title: 'Shop groceries online',
   description: 'Order your favourites online for delivery or pickup.',
 }
 

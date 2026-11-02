@@ -301,7 +301,7 @@ export default function DiscountsPage() {
         onOpenChange={(o) => !o && setEditing(null)}
         title={editing === 'new' ? t('promo.addDiscount') : t('common.edit')}
         fields={[
-          { name: 'name', label: t('common.name'), required: true, wide: true, placeholder: 'e.g. Burger happy hour' },
+          { name: 'name', label: t('common.name'), required: true, wide: true, placeholder: 'e.g. Fresh produce Friday' },
           {
             name: 'kind',
             label: 'Type',

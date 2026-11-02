@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SiteView } from '@/components/cms/site-view'
-import { sampleMenu, siteTemplates, type SiteTemplate } from '@/lib/cms/templates'
+import { sampleProducts, siteTemplates, type SiteTemplate } from '@/lib/cms/templates'
 import { cn } from '@/lib/utils'
 import type { SiteContent, SiteSections } from '@/stores/site-store'
 
@@ -19,7 +19,7 @@ const deviceWidth: Record<Device, string> = { desktop: '100%', tablet: '768px', 
 /** Pages of the previewed site. Each maps to a section of the one-page template. */
 const ROUTES = [
   { path: '/', label: 'Home', section: null },
-  { path: '/menu', label: 'Menu', section: 'menu' },
+  { path: '/shop', label: 'Shop', section: 'shop' },
   { path: '/about', label: 'About', section: 'about' },
   { path: '/contact', label: 'Contact', section: 'contact' },
 ] as const
@@ -30,7 +30,7 @@ type RoutePath = (typeof ROUTES)[number]['path']
 const CHROME_OFFSET = 84
 
 /** Every section switched on so the preview shows the whole template, not just what is currently enabled. */
-const allSections: SiteSections = { menu: true, offers: true, reviews: true, gallery: true, reservations: true }
+const allSections: SiteSections = { products: true, offers: true, reviews: true, gallery: true, hours: true }
 
 interface TemplatePreviewDialogProps {
   template: SiteTemplate | null
@@ -119,7 +119,7 @@ export function TemplatePreviewDialog({ template, activeId, accent, content, onO
     if (current !== path) setPath(current)
   }
 
-  const host = `${content.brandName.toLowerCase().replace(/[^a-z0-9]+/g, '')}.zaiqa.pk`
+  const host = `${content.brandName.toLowerCase().replace(/[^a-z0-9]+/g, '')}.dukaan.pk`
 
   const step = (dir: 1 | -1) => onNavigate(siteTemplates[(index + dir + siteTemplates.length) % siteTemplates.length])
 
@@ -150,7 +150,7 @@ export function TemplatePreviewDialog({ template, activeId, accent, content, onO
                   {active && <Badge variant="secondary">Applied</Badge>}
                 </DialogTitle>
                 <DialogDescription className="truncate text-xs">
-                  {template.cuisine} · {index + 1} of {siteTemplates.length} · {template.hero} hero, {template.menu} menu, {template.font} type
+                  {template.storeType} · {index + 1} of {siteTemplates.length} · {template.hero} hero, {template.layout} products, {template.font} type
                 </DialogDescription>
               </div>
               <ToggleGroup
@@ -242,7 +242,7 @@ export function TemplatePreviewDialog({ template, activeId, accent, content, onO
                     accent={active ? accent : null}
                     content={content}
                     sections={allSections}
-                    items={sampleMenu}
+                    items={sampleProducts}
                     cartCount={cart}
                     onCart={() => toast.info('Checkout is disabled in preview')}
                     onAdd={(item) => {

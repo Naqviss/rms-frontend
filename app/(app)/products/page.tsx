@@ -16,24 +16,26 @@ import { FormDialog, type FieldDef, type FormValues } from '@/components/common/
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
-import { OptionGroupsEditor } from '@/components/menu/option-groups-editor'
-import { useCategories, useMenuGroups, useProducts, useTaxRates } from '@/hooks/use-data'
+import { OptionGroupsEditor } from '@/components/catalog/option-groups-editor'
+import { useCategories, useInventory, useProducts, useTaxRates } from '@/hooks/use-data'
+import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency } from '@/lib/utils/format'
 import { productPriceSplit, productTaxRate } from '@/lib/utils/tax'
 import { currentBranchIds } from '@/mocks/branches'
-import type { Product, TaxRate } from '@/types'
+import type { Product, SoldBy, TaxRate } from '@/types'
 
 const netMargin = (p: Product, rates: TaxRate[]) => {
   const { net } = productPriceSplit(p, rates)
   return net ? Math.round(((net - p.costPrice) / net) * 100) : 0
 }
 
-export default function MenuPage() {
+export default function ProductsPage() {
   const { t } = useT()
   const { data: products, isLoading, create, update, remove, removeMany } = useProducts()
   const { data: categories } = useCategories()
-  const { data: groups, update: updateGroup } = useMenuGroups()
+  const { data: inventory } = useInventory()
+  const { inBranch } = useScope()
   const { data: taxRates } = useTaxRates()
   const rates = taxRates ?? []
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
@@ -42,12 +44,30 @@ export default function MenuPage() {
   const [category, setCategory] = useState('all')
 
   const catName = (id: string) => categories?.find((c) => c.id === id)?.name ?? '-'
+  /** Units (or kg) on the shelves of the branches picked in the top bar. */
+  const onHand = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of inBranch(inventory ?? [])) if (i.productId) m.set(i.productId, (m.get(i.productId) ?? 0) + i.quantity)
+    return m
+  }, [inventory, inBranch])
   const rows = useMemo(() => (products ?? []).filter((p) => (category === 'all' ? true : p.categoryId === category)), [products, category])
 
   const fields: FieldDef[] = [
     { name: 'name', label: t('common.name'), required: true, wide: true },
+    { name: 'brand', label: t('catalog.brand'), required: true },
+    { name: 'packSize', label: t('catalog.packSize'), required: true },
+    { name: 'barcode', label: t('catalog.barcode') },
     { name: 'sku', label: 'SKU', required: true },
     { name: 'categoryId', label: t('common.category'), type: 'select', required: true, options: (categories ?? []).map((c) => ({ value: c.id, label: c.name })) },
+    {
+      name: 'soldBy',
+      label: t('catalog.soldBy'),
+      type: 'select',
+      options: [
+        { value: 'unit', label: t('catalog.byUnit') },
+        { value: 'weight', label: t('catalog.byWeight') },
+      ],
+    },
     { name: 'basePrice', label: t('catalog.price'), type: 'number', required: true },
     { name: 'costPrice', label: t('catalog.cost'), type: 'number', required: true },
     {
@@ -79,8 +99,20 @@ export default function MenuPage() {
             </div>
             <div className="min-w-0">
               <p className="font-medium">{row.original.name}</p>
-              <p className="text-xs text-muted-foreground">{row.original.sku}</p>
+              <p className="text-xs text-muted-foreground">
+                {row.original.brand === 'Loose' ? row.original.packSize : `${row.original.brand} · ${row.original.packSize}`}
+              </p>
             </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'barcode',
+        header: t('catalog.barcode'),
+        cell: ({ row }) => (
+          <div className="font-mono text-xs">
+            <p>{row.original.barcode || <span className="font-sans text-muted-foreground">{t('catalog.noBarcode')}</span>}</p>
+            <p className="text-muted-foreground">{row.original.sku}</p>
           </div>
         ),
       },
@@ -93,7 +125,10 @@ export default function MenuPage() {
           const rate = productTaxRate(row.original, rates)
           return (
             <div className="tabular-nums">
-              <p>{formatCurrency(row.original.basePrice)}</p>
+              <p>
+                {formatCurrency(row.original.basePrice)}
+                {row.original.soldBy === 'weight' && <span className="text-xs text-muted-foreground">{t('catalog.perKg')}</span>}
+              </p>
               <p className="text-[11px] text-muted-foreground">
                 {rate ? `${rate.rate}% ${rate.inclusive ? t('catalog.inclTax') : t('catalog.plusTax')}` : t('catalog.noTax')}
               </p>
@@ -128,18 +163,18 @@ export default function MenuPage() {
         ),
       },
       {
-        id: 'dietary',
-        header: t('catalog.dietary'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            {row.original.dietary.map((d) => (
-              <Badge key={d} variant="outline" className="capitalize">
-                {d}
-              </Badge>
-            ))}
-          </div>
-        ),
+        id: 'stock',
+        header: t('nav.stockItems'),
+        // Recomputed at paint time: inventory may load after products.
+        accessorFn: (r) => onHand.get(r.id) ?? 0,
+        cell: ({ row }) => {
+          const qty = onHand.get(row.original.id) ?? 0
+          return (
+            <Badge variant={qty > 0 ? 'outline' : 'destructive'} className="tabular-nums">
+              {Number(qty.toFixed(2))} {row.original.soldBy === 'weight' ? 'kg' : ''}
+            </Badge>
+          )
+        },
       },
       {
         accessorKey: 'available',
@@ -171,13 +206,17 @@ export default function MenuPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, categories, taxRates],
+    [t, categories, taxRates, onHand],
   )
 
   const initial: FormValues =
     editing && editing !== 'new'
       ? {
           name: editing.name,
+          brand: editing.brand,
+          packSize: editing.packSize,
+          barcode: editing.barcode,
+          soldBy: editing.soldBy,
           sku: editing.sku,
           categoryId: editing.categoryId,
           basePrice: editing.basePrice,
@@ -189,6 +228,10 @@ export default function MenuPage() {
         }
       : {
           name: '',
+          brand: '',
+          packSize: '',
+          barcode: '',
+          soldBy: 'unit',
           sku: '',
           categoryId: categories?.[0]?.id ?? '',
           basePrice: 0,
@@ -202,6 +245,10 @@ export default function MenuPage() {
   const save = async (v: FormValues) => {
     const patch = {
       name: String(v.name),
+      brand: String(v.brand),
+      packSize: String(v.packSize),
+      barcode: String(v.barcode ?? '').trim(),
+      soldBy: (v.soldBy === 'weight' ? 'weight' : 'unit') as SoldBy,
       sku: String(v.sku),
       categoryId: String(v.categoryId),
       basePrice: Number(v.basePrice),
@@ -218,13 +265,9 @@ export default function MenuPage() {
       const cat = categories?.find((c) => c.id === patch.categoryId)
       await create({
         ...patch,
-        image: cat?.image ?? '/food/burgers.jpg',
-        dietary: [],
+        image: cat?.image ?? '/mart/staples.svg',
         optionGroups: [],
-        ingredients: [],
         branchIds: currentBranchIds,
-        menuId: groups?.[0]?.id ?? '',
-        schedule: 'all-day',
       })
       toast.success(t('common.created'))
     }
@@ -246,15 +289,27 @@ export default function MenuPage() {
         <TabsList>
           <TabsTrigger value="products">{t('catalog.products')}</TabsTrigger>
           <TabsTrigger value="categories">{t('catalog.categories')}</TabsTrigger>
-          <TabsTrigger value="menus">{t('catalog.menus')}</TabsTrigger>
         </TabsList>
         <TabsContent value="products" className="mt-4">
           <DataTable
             columns={columns}
             data={rows}
             isLoading={isLoading}
-            exportName="menu"
-            exportRows={(r) => r.map((p) => ({ name: p.name, sku: p.sku, category: catName(p.categoryId), price: p.basePrice, cost: p.costPrice, available: p.available }))}
+            exportName="products"
+            exportRows={(r) =>
+              r.map((p) => ({
+                name: p.name,
+                brand: p.brand,
+                packSize: p.packSize,
+                barcode: p.barcode,
+                sku: p.sku,
+                category: catName(p.categoryId),
+                price: p.basePrice,
+                cost: p.costPrice,
+                onHand: onHand.get(p.id) ?? 0,
+                available: p.available,
+              }))
+            }
             onBulkDelete={(sel) => removeMany(sel.map((s) => s.id))}
             filters={
               <OptionSelect
@@ -285,28 +340,6 @@ export default function MenuPage() {
                 </Card>
               )
             })}
-          </div>
-        </TabsContent>
-        <TabsContent value="menus" className="mt-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(groups ?? []).map((g) => (
-              <Card key={g.id}>
-                <CardHeader>
-                  <CardTitle className="text-base">{g.name}</CardTitle>
-                  <CardDescription>{g.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {(products ?? []).filter((p) => p.menuId === g.id).length} {t('catalog.products').toLowerCase()}
-                  </span>
-                  <Switch
-                    checked={g.active}
-                    aria-label={`${g.name} ${t('catalog.available')}`}
-                    onCheckedChange={(v) => updateGroup(g.id, { active: v })}
-                  />
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </TabsContent>
       </Tabs>

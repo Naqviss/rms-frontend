@@ -26,13 +26,13 @@ interface SiteViewProps {
 }
 
 const reviews = [
-  { name: 'Ayesha K.', text: 'Hot, fresh and right on time. Our weekly go-to.' },
-  { name: 'Bilal R.', text: 'Portions are generous and the flavours are spot on.' },
+  { name: 'Ayesha K.', text: 'Fresh vegetables and the whole monthly ration at the door within the hour.' },
+  { name: 'Bilal R.', text: 'Same prices as the shelf, and they swap anything out of stock with a call first.' },
   { name: 'Sana M.', text: 'Ordering was effortless and the rider was lovely.' },
 ]
 
 /**
- * Renders a restaurant website from a template. Layout adapts to its own width via container queries,
+ * Renders a shop's online store from a template. Layout adapts to its own width via container queries,
  * so the same markup works as a scaled preview and as the live storefront.
  */
 export function SiteView({ template, accent, content, sections, items, onAdd, cartCount = 0, onCart }: SiteViewProps) {
@@ -46,7 +46,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
   const heroText = (align: 'left' | 'center', light = false) => (
     <div className={align === 'center' ? 'mx-auto max-w-2xl text-center' : 'max-w-lg'} style={light ? { color: '#fff' } : undefined}>
       <p className="mb-3 text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: light ? '#fff' : c.accent }}>
-        {template.cuisine}
+        {template.storeType}
       </p>
       <h1 className="text-4xl leading-tight font-bold text-balance @3xl:text-5xl" style={heading}>
         {content.heroTitle}
@@ -55,12 +55,12 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
         {content.heroSubtitle}
       </p>
       <a
-        href="#menu"
+        href="#shop"
         className={`mt-6 inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold ${align === 'center' ? '' : ''}`}
         style={{ ...accentBg, borderRadius: Math.min(r, 999) }}
       >
         <ShoppingBagIcon className="size-4" aria-hidden />
-        Order now
+        Shop now
       </a>
     </div>
   )
@@ -72,7 +72,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
           {content.brandName}
         </span>
         <nav className="hidden items-center gap-6 text-sm @2xl:flex" style={{ color: c.muted }} aria-label="Site">
-          <a href="#menu">Menu</a>
+          <a href="#shop">Shop</a>
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
         </nav>
@@ -93,12 +93,12 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
           </button>
         ) : (
           <span className="px-4 py-2 text-sm font-semibold" style={{ ...accentBg, borderRadius: Math.min(r, 999) }}>
-            Order online
+            Shop online
           </span>
         )}
       </header>
       <nav className="flex gap-5 overflow-x-auto px-6 pb-3 text-sm @2xl:hidden" style={{ color: c.muted }} aria-label="Site">
-        <a href="#menu">Menu</a>
+        <a href="#shop">Shop</a>
         <a href="#about">About</a>
         <a href="#contact">Contact</a>
       </nav>
@@ -138,17 +138,17 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
             <p className="font-bold" style={heading}>
               Free delivery on orders over {formatCurrency(3000)}
             </p>
-            <p className="text-sm opacity-90">Use code WELCOME10 for 10% off your first order.</p>
+            <p className="text-sm opacity-90">Use code WELCOME10 for 10% off your first online shop.</p>
           </div>
         </section>
       )}
 
-      {sections.menu && (
-        <section id="menu" className="px-6 py-12 @3xl:px-12">
+      {sections.products && (
+        <section id="shop" className="px-6 py-12 @3xl:px-12">
           <h2 className="mb-6 text-2xl font-bold" style={heading}>
-            Popular dishes
+            Popular products
           </h2>
-          {template.menu === 'grid' && (
+          {template.layout === 'grid' && (
             <ul className="grid grid-cols-2 gap-4 @3xl:grid-cols-3">
               {items.map((i) => (
                 <li key={i.id} className="flex flex-col overflow-hidden" style={surface}>
@@ -169,7 +169,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
               ))}
             </ul>
           )}
-          {template.menu === 'list' && (
+          {template.layout === 'list' && (
             <ul className="mx-auto flex max-w-3xl flex-col">
               {items.map((i) => (
                 <li key={i.id} className="flex items-center gap-4 border-b py-4" style={{ borderColor: `${c.muted}44` }}>
@@ -189,7 +189,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
               ))}
             </ul>
           )}
-          {template.menu === 'cards' && (
+          {template.layout === 'cards' && (
             <ul className="grid gap-4 @2xl:grid-cols-2">
               {items.map((i) => (
                 <li key={i.id} className="flex items-center gap-4 p-3" style={surface}>
@@ -223,7 +223,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
       {sections.reviews && (
         <section className="px-6 py-12 @3xl:px-12">
           <h2 className="mb-6 text-2xl font-bold" style={heading}>
-            Loved by guests
+            Loved by shoppers
           </h2>
           <ul className="grid gap-4 @3xl:grid-cols-3">
             {reviews.map((rv) => (
@@ -256,7 +256,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
           <p className="text-lg font-bold" style={heading}>
             {content.brandName}
           </p>
-          {sections.reservations && <p className="mt-1 text-sm opacity-80">Reservations open daily, 12pm to 11pm.</p>}
+          {sections.hours && <p className="mt-1 text-sm opacity-80">Open daily, 8am to 11pm. Same-day delivery across the city.</p>}
         </div>
         <ul className="flex flex-col gap-2 text-sm opacity-90">
           <li className="flex items-center gap-2">

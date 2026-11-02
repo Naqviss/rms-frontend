@@ -9,11 +9,11 @@ const urdu = Noto_Nastaliq_Urdu({ subsets: ['arabic'], variable: '--font-urdu', 
 
 export const metadata: Metadata = {
   title: {
-    default: 'Zaiqa RMS - Restaurant Management System',
-    template: '%s | Zaiqa RMS',
+    default: 'Dukaan POS - Shop & Mart Management',
+    template: '%s | Dukaan POS',
   },
   description:
-    'Multi-tenant restaurant management platform: POS, orders, inventory, vendors, menu, finance and reports in English and Urdu.',
+    'Multi-tenant platform for shops and small marts: barcode POS, stock, suppliers, products, finance and reports in English and Urdu.',
   generator: 'v0.app',
 }
 

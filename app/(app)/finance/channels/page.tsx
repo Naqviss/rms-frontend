@@ -18,8 +18,8 @@ import { formatCompactCurrency, formatCurrency, formatPercent } from '@/lib/util
 import type { SalesChannel } from '@/types'
 
 const chartConfig = {
-  'dine-in': { label: 'Dine-in', color: 'var(--chart-1)' },
-  takeaway: { label: 'Takeaway', color: 'var(--chart-2)' },
+  'in-store': { label: 'In-store', color: 'var(--chart-1)' },
+  pickup: { label: 'Pickup', color: 'var(--chart-2)' },
   'own-delivery': { label: 'Own delivery', color: 'var(--chart-3)' },
   foodpanda: { label: 'Foodpanda', color: 'var(--chart-4)' },
   website: { label: 'Website', color: 'var(--chart-5)' },
@@ -48,7 +48,7 @@ export default function ChannelComparisonPage() {
       const ch = channelOf(o)
       if (channel !== 'all' && ch !== channel) continue
       const day = o.createdAt.slice(0, 10)
-      const bucket = byDay.get(day) ?? { 'dine-in': 0, takeaway: 0, 'own-delivery': 0, foodpanda: 0, website: 0 }
+      const bucket = byDay.get(day) ?? { 'in-store': 0, pickup: 0, 'own-delivery': 0, foodpanda: 0, website: 0 }
       bucket[ch] += o.total
       byDay.set(day, bucket)
     }
@@ -70,7 +70,7 @@ export default function ChannelComparisonPage() {
     <>
       <PageHeader
         title={t('nav.channels')}
-        description="Compare earnings from dine-in, takeaway, your own delivery, Foodpanda and your website."
+        description="Compare earnings from counter sales, pickup, your own delivery, Foodpanda and your online store."
         actions={
           <OptionSelect
             className="h-9 w-48"
@@ -90,7 +90,7 @@ export default function ChannelComparisonPage() {
               label={chartConfig[c.channel].label}
               value={formatCurrency(c.net)}
               icon={channelMeta[c.channel].icon}
-              tone={c.channel === 'dine-in' ? 'dine' : c.channel === 'own-delivery' ? 'delivery' : c.channel}
+              tone={c.channel === 'in-store' ? 'instore' : c.channel === 'own-delivery' ? 'delivery' : c.channel}
               hint={`${c.orders} orders · ${totalGross ? formatPercent((c.gross / totalGross) * 100) : '0%'} of sales`}
             />
           )

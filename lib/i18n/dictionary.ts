@@ -750,6 +750,7 @@ const en = {
   'channel.pickup': 'Pickup',
   'auth.account.stock': 'Stock room',
   'auth.account.packer': 'Packer',
+  'orders.item': 'item',
 } as const
 
 export type TranslationKey = keyof typeof en
@@ -1455,6 +1456,7 @@ const ur: Record<TranslationKey, string> = {
   'channel.pickup': 'پک اپ',
   'auth.account.stock': 'اسٹاک روم',
   'auth.account.packer': 'پیکر',
+  'orders.item': 'آئٹم',
 }
 
 export const dictionaries: Record<Language, Record<TranslationKey, string>> = { en, ur }

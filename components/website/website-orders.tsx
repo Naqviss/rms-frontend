@@ -7,9 +7,9 @@ import {
   BellRingIcon,
   BikeIcon,
   CheckIcon,
-  ChefHatIcon,
   ClockIcon,
-  CookingPotIcon,
+  ScanBarcodeIcon,
+  PackageOpenIcon,
   CreditCardIcon,
   GlobeIcon,
   PackageCheckIcon,
@@ -41,8 +41,8 @@ type Stage = 'new' | 'preparing' | 'ready' | 'done'
 
 const stages: { id: Stage; label: string; icon: LucideIcon }[] = [
   { id: 'new', label: 'New', icon: BellRingIcon },
-  { id: 'preparing', label: 'Preparing', icon: CookingPotIcon },
-  { id: 'ready', label: 'Ready', icon: PackageCheckIcon },
+  { id: 'preparing', label: 'Picking', icon: ScanBarcodeIcon },
+  { id: 'ready', label: 'Packed', icon: PackageCheckIcon },
   { id: 'done', label: 'Done', icon: CheckIcon },
 ]
 
@@ -145,7 +145,7 @@ export function WebsiteOrders() {
         <Empty className="border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <ChefHatIcon />
+              <PackageOpenIcon />
             </EmptyMedia>
             <EmptyTitle>Nothing here</EmptyTitle>
             <EmptyDescription>Orders placed on your website will show up in this lane.</EmptyDescription>
@@ -242,14 +242,14 @@ function WebsiteOrderCard({
           )}
           {!awaiting && stage === 'new' && (
             <Button className="flex-1" onClick={() => onMove(o, 'preparing')}>
-              <CookingPotIcon data-icon="inline-start" />
-              Start preparing
+              <ScanBarcodeIcon data-icon="inline-start" />
+              Start picking
             </Button>
           )}
           {stage === 'preparing' && (
             <Button className="flex-1" onClick={() => onMove(o, 'ready')}>
               <PackageCheckIcon data-icon="inline-start" />
-              Mark ready
+              Mark packed
             </Button>
           )}
           {stage === 'ready' &&

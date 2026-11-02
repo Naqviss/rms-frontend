@@ -18,7 +18,7 @@ import { formatRelative, titleCase } from '@/lib/utils/format'
 import { branchName, currentBranchIds } from '@/mocks/branches'
 import type { Device, DeviceType } from '@/types'
 
-const deviceTypes: DeviceType[] = ['pos-terminal', 'receipt-printer', 'kitchen-printer', 'barcode-scanner', 'cash-drawer', 'customer-display', 'kitchen-display']
+const deviceTypes: DeviceType[] = ['pos-terminal', 'barcode-scanner', 'receipt-printer', 'label-printer', 'weighing-scale', 'cash-drawer', 'customer-display']
 
 export default function HardwarePage() {
   const { t } = useT()

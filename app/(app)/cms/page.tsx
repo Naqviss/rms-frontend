@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { PageHeader } from '@/components/common/page-header'
 import { ScaledFrame, SiteView } from '@/components/cms/site-view'
 import { TemplatePreviewDialog } from '@/components/cms/template-preview-dialog'
-import { accentChoices, sampleMenu, siteTemplates, templateById, type SiteTemplate } from '@/lib/cms/templates'
+import { accentChoices, sampleProducts, siteTemplates, templateById, type SiteTemplate } from '@/lib/cms/templates'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { useSiteStore, type SiteContent, type SiteSections } from '@/stores/site-store'
@@ -117,7 +117,7 @@ export default function CmsPage() {
                       className="relative block w-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
                     >
                       <ScaledFrame height={640}>
-                        <SiteView template={tpl} accent={active ? accent : null} content={content} sections={sections} items={sampleMenu} />
+                        <SiteView template={tpl} accent={active ? accent : null} content={content} sections={sections} items={sampleProducts} />
                       </ScaledFrame>
                       <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/35 group-hover:opacity-100 group-focus-within:bg-black/35 group-focus-within:opacity-100">
                         <span className="flex items-center gap-1.5 rounded-full bg-background px-3.5 py-1.5 text-sm font-medium text-foreground shadow">
@@ -129,7 +129,7 @@ export default function CmsPage() {
                     <div className="flex items-center justify-between gap-2 border-t p-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{tpl.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{tpl.cuisine}</p>
+                        <p className="truncate text-xs text-muted-foreground">{tpl.storeType}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <div className="flex items-center gap-1" aria-hidden>
@@ -171,7 +171,7 @@ export default function CmsPage() {
               <CardContent>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="brandName">Restaurant name</FieldLabel>
+                    <FieldLabel htmlFor="brandName">Store name</FieldLabel>
                     <Input id="brandName" value={content.brandName} onChange={set('brandName')} />
                   </Field>
                   <Field>
@@ -268,7 +268,7 @@ export default function CmsPage() {
           <CardContent>
             <div className="overflow-hidden rounded-lg border">
               <ScaledFrame height={1500}>
-                <SiteView template={template} accent={accent} content={content} sections={sections} items={sampleMenu} />
+                <SiteView template={template} accent={accent} content={content} sections={sections} items={sampleProducts} />
               </ScaledFrame>
             </div>
           </CardContent>

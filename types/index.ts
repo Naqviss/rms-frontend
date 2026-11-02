@@ -350,7 +350,7 @@ export interface PromoSchedule {
   endDate: string | null
   /** Weekdays it runs on (0 = Sunday). Empty = every day. */
   days: number[]
-  /** "HH:mm" window, e.g. a 15:00-18:00 happy hour. Both empty = all day. */
+  /** "HH:mm" window, e.g. a 16:00-20:00 evening offer. Both empty = all day. */
   startTime: string
   endTime: string
   branchId: ID | 'all'

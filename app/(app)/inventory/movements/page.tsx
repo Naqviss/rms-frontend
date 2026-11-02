@@ -14,7 +14,7 @@ import { formatDateTime } from '@/lib/utils/format'
 import { branchName } from '@/mocks/branches'
 import type { MovementType, StockMovement } from '@/types'
 
-const types: MovementType[] = ['purchase', 'consumption', 'adjustment', 'transfer', 'wastage']
+const types: MovementType[] = ['purchase', 'sale', 'adjustment', 'transfer', 'wastage']
 
 export default function StockMovementsPage() {
   const { t } = useT()

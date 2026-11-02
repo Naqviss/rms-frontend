@@ -20,7 +20,7 @@ export default function SettingsPage() {
   const language = useAppStore((s) => s.language)
   const setLanguage = useAppStore((s) => s.setLanguage)
   const { theme, setTheme } = useTheme()
-  const [profile, setProfile] = useState({ name: 'Dastarkhwan Restaurant', owner: 'Hamza Qureshi', email: 'owner@dastarkhwan.pk', phone: '+92 300 1234567', currency: 'PKR', timezone: 'Asia/Karachi' })
+  const [profile, setProfile] = useState({ name: 'Al-Noor Mart', owner: 'Imran Qureshi', email: 'imran@alnoormart.pk', phone: '+92 300 2145678', currency: 'PKR', timezone: 'Asia/Karachi' })
   const [notify, setNotify] = useState({ newOrder: true, lowStock: true, dailySummary: false, syncErrors: true })
   const setP = (k: keyof typeof profile) => (e: React.ChangeEvent<HTMLInputElement>) => setProfile((p) => ({ ...p, [k]: e.target.value }))
 

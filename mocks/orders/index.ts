@@ -160,7 +160,7 @@ export const orders: Order[] = (() => {
       customerId: customer?.id ?? null,
       customerName:
         customer?.name ??
-        (channel === 'foodpanda' ? 'Foodpanda customer' : channel === 'website' ? 'Website guest' : 'Walk-in customer'),
+        (channel === 'foodpanda' ? 'Foodpanda customer' : channel === 'website' ? 'Website guest' : type === 'walk-in' ? 'Walk-in customer' : `${source} customer`),
       type,
       status,
       paymentStatus: status === 'cancelled' ? 'refunded' : status === 'completed' ? 'paid' : channel === 'foodpanda' ? 'paid' : rng() < 0.5 ? 'paid' : 'unpaid',

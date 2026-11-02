@@ -21,7 +21,7 @@ import { formatCurrency, formatDate, initials, titleCase } from '@/lib/utils/for
 import { branchName, currentTenantBranches } from '@/mocks/branches'
 import type { Employee, EmployeeRole } from '@/types'
 
-const employeeRoles: EmployeeRole[] = ['admin', 'manager', 'cashier', 'waiter', 'chef', 'kitchen-staff', 'rider', 'accountant']
+const employeeRoles: EmployeeRole[] = ['admin', 'manager', 'cashier', 'salesman', 'stock-keeper', 'packer', 'rider', 'accountant']
 
 export default function EmployeesPage() {
   const { t } = useT()
@@ -152,7 +152,7 @@ export default function EmployeesPage() {
         }
       : {
           name: '',
-          role: 'waiter',
+          role: 'cashier',
           branchId: primaryBranch,
           phone: '',
           email: '',

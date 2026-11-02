@@ -12,14 +12,14 @@ interface DealItemsEditorProps {
   onChange: (items: DealItem[]) => void
 }
 
-/** The menu items inside a deal, each with a quantity. */
+/** The products inside a bundle, each with a quantity. */
 export function DealItemsEditor({ items, products, onChange }: DealItemsEditorProps) {
   const setAt = (i: number, patch: Partial<DealItem>) => onChange(items.map((it, j) => (j === i ? { ...it, ...patch } : it)))
   const unused = products.find((p) => !items.some((i) => i.productId === p.id))
 
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-sm font-medium">What&apos;s in the deal</legend>
+      <legend className="mb-2 text-sm font-medium">What&apos;s in the bundle</legend>
       {items.length === 0 && <p className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">Add at least one item.</p>}
       <ul className="flex flex-col gap-2">
         {items.map((it, i) => {

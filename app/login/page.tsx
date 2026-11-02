@@ -5,15 +5,15 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertCircleIcon,
-  ChefHatIcon,
-  ConciergeBellIcon,
+  PackageIcon,
+  WarehouseIcon,
   EyeIcon,
   EyeOffIcon,
   LockIcon,
   ReceiptIcon,
   ShieldCheckIcon,
+  ShoppingBasketIcon,
   UserIcon,
-  UtensilsCrossedIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -34,8 +34,8 @@ function safeNext(value: string | null) {
 
 const accountMeta: Record<string, { label: TranslationKey; icon: typeof UserIcon }> = {
   admin: { label: 'auth.account.owner', icon: ShieldCheckIcon },
-  kitchen: { label: 'auth.account.kitchen', icon: ChefHatIcon },
-  waiter: { label: 'auth.account.waiter', icon: ConciergeBellIcon },
+  stock: { label: 'auth.account.stock', icon: WarehouseIcon },
+  packer: { label: 'auth.account.packer', icon: PackageIcon },
   counter: { label: 'auth.account.counter', icon: ReceiptIcon },
 }
 
@@ -178,12 +178,12 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-dvh bg-background lg:grid-cols-[1.1fr_1fr]">
       <aside className="relative hidden overflow-hidden bg-sidebar lg:block">
-        <Image src="/food/hero.png" alt="" fill priority className="object-cover opacity-60" sizes="55vw" />
+        <Image src="/mart/hero.svg" alt="" fill priority className="object-cover opacity-60" sizes="55vw" />
         <div className="absolute inset-0 bg-gradient-to-t from-sidebar via-sidebar/70 to-sidebar/20" aria-hidden />
         <div className="relative flex h-full flex-col justify-between p-10 text-sidebar-foreground">
           <div className="flex items-center gap-2.5">
             <span className="flex size-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
-              <UtensilsCrossedIcon className="size-5" aria-hidden />
+              <ShoppingBasketIcon className="size-5" aria-hidden />
             </span>
             <span className="text-lg font-semibold">{t('app.name')}</span>
           </div>
@@ -198,7 +198,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2 lg:invisible">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <UtensilsCrossedIcon className="size-4" aria-hidden />
+              <ShoppingBasketIcon className="size-4" aria-hidden />
             </span>
             <span className="font-semibold">{t('app.name')}</span>
           </span>

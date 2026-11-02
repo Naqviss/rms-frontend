@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LockIcon, MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, ShieldAlertIcon, UtensilsCrossedIcon } from 'lucide-react'
+import { LockIcon, MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, ShieldAlertIcon, ShoppingBasketIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
@@ -31,13 +31,13 @@ function Brand({ collapsed, mode }: { collapsed?: boolean; mode: 'app' | 'admin'
   return (
     <Link href={mode === 'admin' ? '/admin/tenants' : home} className="flex items-center gap-2.5 px-4 py-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
-        <UtensilsCrossedIcon className="size-5" aria-hidden />
+        <ShoppingBasketIcon className="size-5" aria-hidden />
       </span>
       {!collapsed && (
         <span className="leading-tight">
           <span className="block text-[15px] font-semibold text-sidebar-foreground">{t('app.name')}</span>
           <span className="block text-[11px] text-sidebar-foreground/55">
-            {mode === 'admin' ? t('shell.superAdmin') : 'Zaiqa Kitchen'}
+            {mode === 'admin' ? t('shell.superAdmin') : 'Al-Noor Mart'}
           </span>
         </span>
       )}

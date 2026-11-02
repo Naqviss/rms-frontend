@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
-import { AlertTriangleIcon, CalculatorIcon, CrownIcon, FlameIcon, PercentIcon, RotateCcwIcon, TrophyIcon } from 'lucide-react'
+import { AlertTriangleIcon, CrownIcon, PackageIcon, FlameIcon, PercentIcon, RotateCcwIcon, TrophyIcon } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,10 +25,10 @@ import { cn } from '@/lib/utils'
 import { formatCompactCurrency, formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format'
 import { profitabilityWithOverhead, rankItems, RANK_METRICS, type ItemProfit, type RankMetric } from '@/lib/utils/profitability'
 import { aggregateSales } from '@/mocks/finance'
-import { categories } from '@/mocks/menu'
+import { categories } from '@/mocks/catalog'
 import { useAppStore } from '@/stores/app-store'
 
-const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Menu item'
+const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Product'
 
 const splitConfig = {
   itemCost: { label: 'Item cost', color: 'var(--chart-2)' },
@@ -56,13 +56,13 @@ function SplitBar({ item }: { item: ItemProfit }) {
 }
 
 function CostSourceBadge({ source }: { source: ItemProfit['costSource'] }) {
-  return source === 'recipe' ? (
+  return source === 'stock' ? (
     <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-      Costed
+      Stock cost
     </Badge>
   ) : (
     <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-muted-foreground">
-      Estimate
+      Catalogue cost
     </Badge>
   )
 }
@@ -138,7 +138,7 @@ export default function ItemProfitPage() {
   const ranked = useMemo(() => rankItems(profit.items, metric), [profit.items, metric])
   const hero = ranked[0] ?? null
   const totalProfit = profit.items.reduce((s, i) => s + Math.max(0, i.profit), 0)
-  const estimates = profit.items.filter((i) => i.costSource === 'menu').length
+  const estimates = profit.items.filter((i) => i.costSource === 'catalog').length
   const bestMargin = rankItems(profit.items, 'margin')[0]
   const bestSeller = rankItems(profit.items, 'units')[0]
   const weakest = rankItems(profit.items, 'margin').at(-1)
@@ -241,9 +241,9 @@ export default function ItemProfitPage() {
               aria-label="Rank items by"
               options={RANK_METRICS.map((m) => ({ value: m.value, label: `Rank by: ${m.label}` }))}
             />
-            <Button variant="outline" render={<Link href="/finance/costing" />} nativeButton={false}>
-              <CalculatorIcon data-icon="inline-start" />
-              {t('nav.costing')}
+            <Button variant="outline" render={<Link href="/inventory/items" />} nativeButton={false}>
+              <PackageIcon data-icon="inline-start" />
+              {t('nav.stockItems')}
             </Button>
           </>
         }
@@ -304,17 +304,17 @@ export default function ItemProfitPage() {
                 <p className="font-medium">{t('expenses.howCalculated')}</p>
                 <p className="text-pretty text-muted-foreground">
                   Income is {includeTax ? 'counted with' : 'counted without'} the sales tax collected on each item (rates from{' '}
-                  <Link href="/taxes" className="font-medium text-primary underline-offset-2 hover:underline">Tax Management</Link>). Expense per item = item cost per
-                  serving + overhead at {formatPercent(ratePct, 1)} of the item&apos;s income before tax. Item cost comes from the
-                  item&apos;s costing sheet (ingredients, wastage, packaging, gas, labour); items without one use the menu cost as an estimate
+                  <Link href="/taxes" className="font-medium text-primary underline-offset-2 hover:underline">Tax Management</Link>). Expense per item = what you paid
+                  for it + overhead at {formatPercent(ratePct, 1)} of the item&apos;s income before tax. Item cost is the average purchase price of the
+                  product&apos;s shelf stock; products with no stock on record use the catalogue cost price
                   {estimates > 0 && (
                     <>
                       {' '}
-                      (<Link href="/finance/costing" className="font-medium text-primary underline-offset-2 hover:underline">{estimates} sold items still estimated</Link>)
+                      (<Link href="/inventory/items" className="font-medium text-primary underline-offset-2 hover:underline">{estimates} sold products not stocked</Link>)
                     </>
                   )}
-                  . Auto overhead = total costs ({formatPercent((profit.autoRate + profit.foodCostRate) * 100)} of sales) minus item cost (
-                  {formatPercent(profit.foodCostRate * 100)}).
+                  . Auto overhead = total costs ({formatPercent((profit.autoRate + profit.goodsCostRate) * 100)} of sales) minus cost of goods (
+                  {formatPercent(profit.goodsCostRate * 100)}).
                 </p>
               </div>
               <InputGroup className="w-full shrink-0 sm:w-56">
@@ -387,8 +387,8 @@ export default function ItemProfitPage() {
                 <div className="rounded-lg bg-muted/60 p-3 text-sm">
                   <span className="text-muted-foreground">Average margin </span>
                   <span className="font-semibold">{formatPercent(profit.income ? (profit.profit / profit.income) * 100 : 0, 1)}</span>
-                  <span className="text-muted-foreground"> · item cost </span>
-                  <span className="font-semibold">{formatPercent(profit.foodCostRate * 100, 1)}</span>
+                  <span className="text-muted-foreground"> · cost of goods </span>
+                  <span className="font-semibold">{formatPercent(profit.goodsCostRate * 100, 1)}</span>
                 </div>
               </CardContent>
             </Card>

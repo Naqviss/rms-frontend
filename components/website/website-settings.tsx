@@ -78,7 +78,7 @@ export function WebsiteSettings() {
         <CardContent className="flex flex-col gap-3">
           <Toggle icon={BikeIcon} label="Delivery" checked={website.acceptDelivery} onChange={(v) => set({ acceptDelivery: v })} />
           <Toggle icon={ShoppingBagIcon} label="Pickup" checked={website.acceptPickup} onChange={(v) => set({ acceptPickup: v })} />
-          <Amount icon={ClockIcon} label="Preparation time" value={website.prepMinutes} unit="min" onChange={(v) => set({ prepMinutes: v })} />
+          <Amount icon={ClockIcon} label="Picking & packing time" value={website.prepMinutes} unit="min" onChange={(v) => set({ prepMinutes: v })} />
         </CardContent>
       </Card>
 

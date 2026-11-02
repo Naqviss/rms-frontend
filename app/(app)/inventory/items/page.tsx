@@ -12,7 +12,7 @@ import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
-import { useInventory, useStockMovements, useVendors } from '@/hooks/use-data'
+import { useInventory, useProducts, useStockMovements, useVendors } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
@@ -27,6 +27,7 @@ export default function StockItemsPage() {
   const { data, isLoading, create, update, remove, removeMany } = useInventory()
   const { create: logMovement } = useStockMovements()
   const { data: vendors } = useVendors()
+  const { data: products } = useProducts()
   const { inBranch, primaryBranch } = useScope()
   const [mode, setMode] = useState<Mode>(null)
   const [deleting, setDeleting] = useState<InventoryItem | null>(null)
@@ -122,7 +123,7 @@ export default function StockItemsPage() {
           vendorId: mode.item.vendorId,
           expiryDate: mode.item.expiryDate ?? '',
         }
-      : { name: '', sku: '', category: '', quantity: 0, unit: 'kg', minStock: 0, costPerUnit: 0, vendorId: vendors?.[0]?.id ?? '', expiryDate: '' }
+      : { name: '', sku: '', category: '', quantity: 0, unit: 'pcs', minStock: 0, costPerUnit: 0, vendorId: vendors?.[0]?.id ?? '', expiryDate: '' }
 
   const saveItem = async (v: FormValues) => {
     const patch = {
@@ -140,11 +141,14 @@ export default function StockItemsPage() {
       await update(mode.item.id, patch)
       toast.success(t('common.updated'))
     } else {
+      // Stock with a catalogue SKU is that product's shelf; anything else is a store supply such as bags.
+      const product = products?.find((p) => p.sku === patch.sku)
       await create({
         ...patch,
         branchId: primaryBranch,
-        kind: 'ingredient',
-        image: '/food/desi.jpg',
+        kind: product ? (product.soldBy === 'weight' ? 'loose' : 'retail') : 'supplies',
+        productId: product?.id ?? null,
+        image: product?.image ?? '/mart/supplies.svg',
       })
       toast.success(t('common.created'))
     }
