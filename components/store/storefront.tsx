@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SiteView, type SiteItem } from '@/components/cms/site-view'
-import { ProductOptionsDialog } from '@/components/menu/product-options-dialog'
+import { ProductOptionsDialog } from '@/components/catalog/product-options-dialog'
 import { useBranches, useOrders, useProducts } from '@/hooks/use-data'
 import { templateById } from '@/lib/cms/templates'
 import { formatCurrency } from '@/lib/utils/format'
@@ -45,7 +45,14 @@ export function Storefront() {
   const items: SiteItem[] = useMemo(() => {
     const live = (products ?? []).filter((p) => p.available)
     const sorted = [...live].sort((a, b) => Number(b.featured) - Number(a.featured))
-    return sorted.slice(0, 12).map((p) => ({ id: p.id, name: p.name, description: p.description, price: p.basePrice, image: p.image }))
+    return sorted.slice(0, 12).map((p) => ({
+      id: p.id,
+      name: p.name,
+      // Shoppers compare brand and pack size, so lead with those.
+      description: [p.brand === 'Loose' ? null : p.brand, p.packSize].filter(Boolean).join(' · '),
+      price: p.basePrice,
+      image: p.image,
+    }))
   }, [products])
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0)
@@ -93,7 +100,6 @@ export function Storefront() {
       tax: 0,
       total,
       branchId: branches?.[0]?.id ?? 'b1',
-      tableId: null,
       createdAt: new Date().toISOString(),
       notes: form.notes,
       source: 'Website',
@@ -137,7 +143,7 @@ export function Storefront() {
         <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{placed ? 'Order placed' : 'Your order'}</SheetTitle>
-            <SheetDescription>{placed ? 'The restaurant has been notified.' : `${count} item${count === 1 ? '' : 's'}`}</SheetDescription>
+            <SheetDescription>{placed ? 'The store has been notified.' : `${count} item${count === 1 ? '' : 's'}`}</SheetDescription>
           </SheetHeader>
 
           {placed ? (

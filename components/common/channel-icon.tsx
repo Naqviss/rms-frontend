@@ -1,14 +1,14 @@
 'use client'
 
-import { BikeIcon, GlobeIcon, PawPrintIcon, ShoppingBagIcon, UtensilsCrossedIcon, type LucideIcon } from 'lucide-react'
+import { BikeIcon, GlobeIcon, PackageCheckIcon, PawPrintIcon, StoreIcon, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import type { SalesChannel } from '@/types'
 
 export const channelMeta: Record<SalesChannel, { icon: LucideIcon; tile: string; text: string; bar: string; ring: string }> = {
-  'dine-in': { icon: UtensilsCrossedIcon, tile: 'bg-dine/15 text-dine', text: 'text-dine', bar: 'bg-dine', ring: 'border-dine/50 bg-dine/10' },
-  takeaway: { icon: ShoppingBagIcon, tile: 'bg-takeaway/20 text-takeaway', text: 'text-takeaway', bar: 'bg-takeaway', ring: 'border-takeaway/50 bg-takeaway/10' },
+  'in-store': { icon: StoreIcon, tile: 'bg-instore/15 text-instore', text: 'text-instore', bar: 'bg-instore', ring: 'border-instore/50 bg-instore/10' },
+  pickup: { icon: PackageCheckIcon, tile: 'bg-pickup/20 text-pickup', text: 'text-pickup', bar: 'bg-pickup', ring: 'border-pickup/50 bg-pickup/10' },
   'own-delivery': { icon: BikeIcon, tile: 'bg-delivery/15 text-delivery', text: 'text-delivery', bar: 'bg-delivery', ring: 'border-delivery/50 bg-delivery/10' },
   foodpanda: { icon: PawPrintIcon, tile: 'bg-foodpanda/15 text-foodpanda', text: 'text-foodpanda', bar: 'bg-foodpanda', ring: 'border-foodpanda/50 bg-foodpanda/10' },
   website: { icon: GlobeIcon, tile: 'bg-website/15 text-website', text: 'text-website', bar: 'bg-website', ring: 'border-website/50 bg-website/10' },

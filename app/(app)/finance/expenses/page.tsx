@@ -203,7 +203,7 @@ export default function ExpensesPage() {
           description: editing.description,
           paid: editing.status === 'completed',
         }
-      : { category: 'Ingredients', payee: '', amount: '', date: TODAY, method: 'cash', branchId: defaultBranch, description: '', paid: true }
+      : { category: 'Stock purchase', payee: '', amount: '', date: TODAY, method: 'cash', branchId: defaultBranch, description: '', paid: true }
 
   const alerts = [
     ...overdue.map((r) => ({
@@ -276,7 +276,7 @@ export default function ExpensesPage() {
               label={t('expenses.ratio')}
               value={formatPercent(period.income ? (period.total / period.income) * 100 : 0)}
               icon={PercentIcon}
-              tone="takeaway"
+              tone="pickup"
               hint={`${formatCompactCurrency(period.total)} of ${formatCompactCurrency(period.income)} income, ${PERIOD_LABEL[preset]}`}
             />
           </div>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
-import { BikeIcon, CheckIcon, GlobeIcon, PlusIcon, ShoppingBagIcon, UtensilsCrossedIcon, XIcon, type LucideIcon } from 'lucide-react'
+import { BikeIcon, CheckIcon, GlobeIcon, PackageCheckIcon, PlusIcon, StoreIcon, XIcon, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -21,15 +21,15 @@ import { StatusBadge } from '@/components/common/status-badge'
 import { useOrders } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
-import { formatCurrency, formatDateTime } from '@/lib/utils/format'
+import { formatCurrency, formatDateTime, formatLineQty } from '@/lib/utils/format'
 import { branchName } from '@/mocks/branches'
 import type { Order, OrderStatus, OrderType, SalesChannel } from '@/types'
 
 const statuses: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'out-for-delivery', 'completed', 'cancelled']
 
 const typeIcon: Record<OrderType, LucideIcon> = {
-  'dine-in': UtensilsCrossedIcon,
-  takeaway: ShoppingBagIcon,
+  'walk-in': StoreIcon,
+  pickup: PackageCheckIcon,
   delivery: BikeIcon,
   online: GlobeIcon,
 }
@@ -268,7 +268,7 @@ export default function OrdersPage() {
                     <li key={idx} className="flex items-start justify-between gap-3 text-sm">
                       <div className="min-w-0">
                         <p className="font-medium">
-                          {i.quantity} x {i.name}
+                          {formatLineQty(i)} {i.name}
                         </p>
                         {!!i.options?.length && <p className="text-xs text-muted-foreground">{i.options.join(', ')}</p>}
                       </div>

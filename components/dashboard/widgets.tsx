@@ -125,7 +125,7 @@ function ExpensesKpi({ data, title }: WidgetProps) {
 }
 
 function PendingKpi({ data, title }: WidgetProps) {
-  return <StatCard label={title} value={formatNumber(data.pending)} icon={ClockIcon} hint="Awaiting kitchen or confirmation" className="h-full" />
+  return <StatCard label={title} value={formatNumber(data.pending)} icon={ClockIcon} hint="Awaiting picking or confirmation" className="h-full" />
 }
 
 function EmployeesKpi({ data, title }: WidgetProps) {
@@ -263,7 +263,7 @@ function HeroItems({ data, title }: WidgetProps) {
   const metric = useDashboardStore((s) => s.heroMetric)
   const setMetric = useDashboardStore((s) => s.setHeroMetric)
   const top = rankItems(items, metric).slice(0, 3)
-  const estimated = top.some((i) => i.costSource === 'menu')
+  const estimated = top.some((i) => i.costSource === 'catalog')
   return (
     <ChartCard
       title={title}
@@ -332,9 +332,9 @@ function HeroItems({ data, title }: WidgetProps) {
           </ol>
           {estimated && (
             <p className="text-[11px] text-muted-foreground">
-              Some items use the menu cost as an estimate.{' '}
-              <Link href="/finance/costing" className="font-medium text-primary underline-offset-2 hover:underline">
-                Add their costing
+              Some items are not stocked yet, so their catalogue cost price is used.{' '}
+              <Link href="/inventory/items" className="font-medium text-primary underline-offset-2 hover:underline">
+                Add their stock
               </Link>{' '}
               for exact profit.
             </p>

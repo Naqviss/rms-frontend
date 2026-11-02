@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { config } from '@/lib/config'
 
 export interface SiteContent {
   brandName: string
@@ -58,6 +59,6 @@ export const useSiteStore = create<SiteState>()(
       setContent: (patch) => set((s) => ({ content: { ...s.content, ...patch } })),
       setSections: (patch) => set((s) => ({ sections: { ...s.sections, ...patch } })),
     }),
-    { name: 'site-settings-v1' },
+    { name: `${config.storagePrefix}site-settings` },
   ),
 )

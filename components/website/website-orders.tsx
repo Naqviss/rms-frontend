@@ -34,7 +34,7 @@ import { useOrders } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { channelOf } from '@/lib/utils/channels'
 import { cn } from '@/lib/utils'
-import { formatCurrency, formatDateTime } from '@/lib/utils/format'
+import { formatCurrency, formatDateTime, formatLineQty } from '@/lib/utils/format'
 import type { Order, OrderStatus } from '@/types'
 
 type Stage = 'new' | 'preparing' | 'ready' | 'done'
@@ -213,7 +213,7 @@ function WebsiteOrderCard({
           {o.items.slice(0, 4).map((i, n) => (
             <li key={n} className="flex justify-between gap-2">
               <span className="truncate">
-                {i.quantity} x {i.name}
+                {formatLineQty(i)} {i.name}
               </span>
               <span className="tabular-nums text-muted-foreground">{formatCurrency(i.unitPrice * i.quantity)}</span>
             </li>

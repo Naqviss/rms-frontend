@@ -29,8 +29,8 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
-  --color-dine: var(--dine);
-  --color-takeaway: var(--takeaway);
+  --color-instore: var(--instore);
+  --color-pickup: var(--pickup);
   --color-delivery: var(--delivery);
   --color-foodpanda: var(--foodpanda);
   --color-website: var(--website);
@@ -79,8 +79,8 @@
   --warning: oklch(0.78 0.16 70);
   --warning-foreground: oklch(0.3 0.07 70);
   --info: oklch(0.6 0.15 245);
-  --dine: oklch(0.62 0.16 150);
-  --takeaway: oklch(0.72 0.17 60);
+  --instore: oklch(0.62 0.16 150);
+  --pickup: oklch(0.72 0.17 60);
   --delivery: oklch(0.58 0.17 250);
   --foodpanda: oklch(0.6 0.23 5);
   --website: oklch(0.58 0.2 295);
@@ -125,8 +125,8 @@
   --warning: oklch(0.82 0.15 75);
   --warning-foreground: oklch(0.2 0.05 75);
   --info: oklch(0.72 0.14 245);
-  --dine: oklch(0.74 0.17 150);
-  --takeaway: oklch(0.8 0.16 65);
+  --instore: oklch(0.74 0.17 150);
+  --pickup: oklch(0.8 0.16 65);
   --delivery: oklch(0.72 0.14 250);
   --foodpanda: oklch(0.7 0.2 5);
   --website: oklch(0.72 0.16 295);

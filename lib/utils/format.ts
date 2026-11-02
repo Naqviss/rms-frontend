@@ -51,6 +51,11 @@ export function formatRelative(iso: string) {
   return `${Math.round(hrs / 24)}d ago`
 }
 
+/** "2 x" for packs, "1.25 kg" for weighed goods. */
+export function formatLineQty(item: { quantity: number; unit?: 'kg' }) {
+  return item.unit === 'kg' ? `${Number(item.quantity.toFixed(3))} kg` : `${item.quantity} x`
+}
+
 export function initials(name: string) {
   return name
     .split(' ')

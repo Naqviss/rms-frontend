@@ -28,8 +28,8 @@ export function promoStatus(p: PromoSchedule & { usageLimit?: number; used?: num
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const CHANNEL_NAMES: Record<SalesChannel, string> = {
-  'dine-in': 'Dine-in',
-  takeaway: 'Takeaway',
+  'in-store': 'In-store',
+  pickup: 'Pickup',
   'own-delivery': 'Delivery',
   foodpanda: 'Foodpanda',
   website: 'Website',
@@ -104,7 +104,7 @@ export function discountFor(d: Discount, lines: OrderItem[], products: Product[]
   return { amount: Math.round(Math.min(amount, base)), reason: null }
 }
 
-/** A deal's normal menu price, ingredient cost, what the customer saves and what the business keeps. */
+/** A deal's normal shelf price, stock cost, what the customer saves and what the business keeps. */
 export function dealValue(deal: Pick<Deal, 'items' | 'price'>, products: Product[]) {
   const byId = new Map(products.map((p) => [p.id, p]))
   let regular = 0
@@ -125,6 +125,6 @@ export function dealValue(deal: Pick<Deal, 'items' | 'price'>, products: Product
   }
 }
 
-/** "2× Zinger Burger, 1× Chicken Tikka Pizza" */
+/** "2× Milk 1 L, 1× Sandwich Bread" */
 export const describeDealItems = (deal: Pick<Deal, 'items'>, products: Product[]) =>
   deal.items.map((i) => `${i.quantity}× ${products.find((p) => p.id === i.productId)?.name ?? 'Removed item'}`).join(', ')

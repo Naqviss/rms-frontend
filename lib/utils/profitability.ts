@@ -22,9 +22,9 @@ export interface ItemProfit {
   income: number
   /** Sales tax collected on the item, whether or not it is counted in `income`. */
   tax: number
-  /** Direct cost of everything sold: units x cost per serving (costing sheet, or the menu cost price). */
+  /** Direct cost of everything sold: units x cost per unit (stock purchase price, or the catalogue cost price). */
   itemCost: number
-  /** Where the per-serving cost came from. */
+  /** Where the per-unit cost came from. */
   costSource: CostSource
   /** The item's share of running costs (rent, salaries, utilities...), allocated in proportion to its income. */
   overhead: number
@@ -44,24 +44,24 @@ export interface ProfitSummary {
   tax: number
   expense: number
   profit: number
-  /** Direct item cost as a share of item income (0-1). */
-  foodCostRate: number
+  /** Direct item cost (cost of goods sold) as a share of item income (0-1). */
+  goodsCostRate: number
   hero: ItemProfit | null
   bestMargin: ItemProfit | null
   bestSeller: ItemProfit | null
-  /** Lowest-margin item that still sells, i.e. the one to reprice or re-cost first. */
+  /** Lowest-margin item that still sells, i.e. the one to reprice or renegotiate with the supplier first. */
   weakest: ItemProfit | null
 }
 
-/** Running cost as a share of sales once ingredients are taken out: total cost ratio minus food cost ratio. */
-export function overheadRateFrom(totalRevenue: number, totalExpenses: number, foodCostRate: number) {
+/** Running cost as a share of sales once the goods themselves are taken out: total cost ratio minus cost-of-goods ratio. */
+export function overheadRateFrom(totalRevenue: number, totalExpenses: number, goodsCostRate: number) {
   if (totalRevenue <= 0) return 0
-  return Math.max(0, totalExpenses / totalRevenue - foodCostRate)
+  return Math.max(0, totalExpenses / totalRevenue - goodsCostRate)
 }
 
 /**
  * Per-item income, expense and profit from sold order lines.
- * Expense per item = direct cost per serving (from `unitCosts`, else the menu cost price)
+ * Expense per item = direct cost per unit (from `unitCosts`, else the catalogue cost price)
  * + overhead allocated at `overheadRate` of the item's net (tax-free) income.
  * Without a `tax` view, prices are treated as untaxed.
  * The hero item is the one that contributes the most total profit.
@@ -95,7 +95,7 @@ export function itemProfitability(
     if (!p || s.units === 0) return []
     net += s.net
     const income = s.net + (tax?.include ? s.tax : 0)
-    const unit = unitCosts?.get(id) ?? { cost: p.costPrice, source: 'menu' as const }
+    const unit = unitCosts?.get(id) ?? { cost: p.costPrice, source: 'catalog' as const }
     const itemCost = s.units * unit.cost
     const overhead = s.net * overheadRate
     const expense = itemCost + overhead
@@ -138,7 +138,7 @@ export function itemProfitability(
     tax: rows.reduce((t, r) => t + r.tax, 0),
     expense,
     profit: income - expense,
-    foodCostRate: net ? direct / net : 0,
+    goodsCostRate: net ? direct / net : 0,
     hero: items[0] ?? null,
     bestMargin: top('margin'),
     bestSeller: top('units'),
@@ -159,7 +159,7 @@ export function profitabilityWithOverhead(
   tax?: TaxView,
 ) {
   const base = itemProfitability(orders, products, 0, unitCosts, tax)
-  const autoRate = overheadRateFrom(pl.revenue, pl.expenses, base.foodCostRate)
+  const autoRate = overheadRateFrom(pl.revenue, pl.expenses, base.goodsCostRate)
   const rate = overrideRate ?? autoRate
   return { ...itemProfitability(orders, products, rate, unitCosts, tax), rate, autoRate }
 }
@@ -168,7 +168,7 @@ export type RankMetric = 'profit' | 'profitPerUnit' | 'units' | 'margin'
 
 export const RANK_METRICS: { value: RankMetric; label: string; hint: string }[] = [
   { value: 'profit', label: 'Total profit', hint: 'Profit earned across all units sold' },
-  { value: 'profitPerUnit', label: 'Profit per item sold', hint: 'Profit on each serving' },
+  { value: 'profitPerUnit', label: 'Profit per item sold', hint: 'Profit on each unit or kg sold' },
   { value: 'units', label: 'Units sold (count)', hint: 'How many were sold' },
   { value: 'margin', label: 'Profit margin %', hint: 'Profit as a share of the selling price' },
 ]

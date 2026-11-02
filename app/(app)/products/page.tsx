@@ -48,23 +48,23 @@ export default function MenuPage() {
     { name: 'name', label: t('common.name'), required: true, wide: true },
     { name: 'sku', label: 'SKU', required: true },
     { name: 'categoryId', label: t('common.category'), type: 'select', required: true, options: (categories ?? []).map((c) => ({ value: c.id, label: c.name })) },
-    { name: 'basePrice', label: t('menu.price'), type: 'number', required: true },
-    { name: 'costPrice', label: t('menu.cost'), type: 'number', required: true },
+    { name: 'basePrice', label: t('catalog.price'), type: 'number', required: true },
+    { name: 'costPrice', label: t('catalog.cost'), type: 'number', required: true },
     {
       name: 'taxRateId',
       label: t('common.tax'),
       type: 'select',
       wide: true,
       options: [
-        { value: 'none', label: t('menu.noTax') },
+        { value: 'none', label: t('catalog.noTax') },
         ...rates
           .filter((r) => r.active || (editing !== 'new' && r.id === editing?.taxRateId))
-          .map((r) => ({ value: r.id, label: `${r.name} · ${r.rate}% ${r.inclusive ? t('menu.inclTax') : t('menu.plusTax')}` })),
+          .map((r) => ({ value: r.id, label: `${r.name} · ${r.rate}% ${r.inclusive ? t('catalog.inclTax') : t('catalog.plusTax')}` })),
       ],
     },
     { name: 'description', label: t('common.description'), type: 'textarea', wide: true },
-    { name: 'available', label: t('menu.available'), type: 'switch' },
-    { name: 'featured', label: t('menu.featured'), type: 'switch' },
+    { name: 'available', label: t('catalog.available'), type: 'switch' },
+    { name: 'featured', label: t('catalog.featured'), type: 'switch' },
   ]
 
   const columns = useMemo<ColumnDef<Product, unknown>[]>(
@@ -88,14 +88,14 @@ export default function MenuPage() {
       { id: 'category', header: t('common.category'), accessorFn: (r) => catName(r.categoryId), cell: ({ row }) => catName(row.original.categoryId) },
       {
         accessorKey: 'basePrice',
-        header: t('menu.price'),
+        header: t('catalog.price'),
         cell: ({ row }) => {
           const rate = productTaxRate(row.original, rates)
           return (
             <div className="tabular-nums">
               <p>{formatCurrency(row.original.basePrice)}</p>
               <p className="text-[11px] text-muted-foreground">
-                {rate ? `${rate.rate}% ${rate.inclusive ? t('menu.inclTax') : t('menu.plusTax')}` : t('menu.noTax')}
+                {rate ? `${rate.rate}% ${rate.inclusive ? t('catalog.inclTax') : t('catalog.plusTax')}` : t('catalog.noTax')}
               </p>
             </div>
           )
@@ -103,7 +103,7 @@ export default function MenuPage() {
       },
       {
         id: 'margin',
-        header: t('menu.margin'),
+        header: t('catalog.margin'),
         // Margin on what the business keeps, so tax inside the price does not inflate it.
         // The cell recomputes rather than reading the cached accessor value, since tax rates may load after products.
         accessorFn: (r) => netMargin(r, rates),
@@ -111,7 +111,7 @@ export default function MenuPage() {
       },
       {
         id: 'options',
-        header: t('menu.options'),
+        header: t('catalog.options'),
         enableSorting: false,
         cell: ({ row }) => (
           <Button
@@ -123,13 +123,13 @@ export default function MenuPage() {
               setOptionsFor(row.original)
             }}
           >
-            {row.original.optionGroups.length ? row.original.optionGroups.map((g) => g.name).join(' · ') : t('menu.addOptions')}
+            {row.original.optionGroups.length ? row.original.optionGroups.map((g) => g.name).join(' · ') : t('catalog.addOptions')}
           </Button>
         ),
       },
       {
         id: 'dietary',
-        header: t('menu.dietary'),
+        header: t('catalog.dietary'),
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
@@ -143,12 +143,12 @@ export default function MenuPage() {
       },
       {
         accessorKey: 'available',
-        header: t('menu.available'),
+        header: t('catalog.available'),
         cell: ({ row }) => (
           <div onClick={(e) => e.stopPropagation()}>
             <Switch
               checked={row.original.available}
-              aria-label={`${t('menu.available')}: ${row.original.name}`}
+              aria-label={`${t('catalog.available')}: ${row.original.name}`}
               onCheckedChange={(v) => update(row.original.id, { available: v })}
             />
           </div>
@@ -163,7 +163,7 @@ export default function MenuPage() {
           <RowActions
             actions={[
               { label: t('common.edit'), onSelect: () => setEditing(row.original) },
-              { label: t('menu.options'), onSelect: () => setOptionsFor(row.original) },
+              { label: t('catalog.options'), onSelect: () => setOptionsFor(row.original) },
               { label: t('common.delete'), destructive: true, onSelect: () => setDeleting(row.original) },
             ]}
           />
@@ -233,20 +233,20 @@ export default function MenuPage() {
   return (
     <>
       <PageHeader
-        title={t('menu.title')}
-        description={t('menu.subtitle')}
+        title={t('catalog.title')}
+        description={t('catalog.subtitle')}
         actions={
           <Button onClick={() => setEditing('new')}>
             <PlusIcon data-icon="inline-start" />
-            {t('menu.addProduct')}
+            {t('catalog.addProduct')}
           </Button>
         }
       />
       <Tabs defaultValue="products">
         <TabsList>
-          <TabsTrigger value="products">{t('menu.products')}</TabsTrigger>
-          <TabsTrigger value="categories">{t('menu.categories')}</TabsTrigger>
-          <TabsTrigger value="menus">{t('menu.menus')}</TabsTrigger>
+          <TabsTrigger value="products">{t('catalog.products')}</TabsTrigger>
+          <TabsTrigger value="categories">{t('catalog.categories')}</TabsTrigger>
+          <TabsTrigger value="menus">{t('catalog.menus')}</TabsTrigger>
         </TabsList>
         <TabsContent value="products" className="mt-4">
           <DataTable
@@ -279,7 +279,7 @@ export default function MenuPage() {
                   <CardHeader>
                     <CardTitle className="text-base">{c.name}</CardTitle>
                     <CardDescription>
-                      {count} {t('menu.products').toLowerCase()}
+                      {count} {t('catalog.products').toLowerCase()}
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -297,11 +297,11 @@ export default function MenuPage() {
                 </CardHeader>
                 <CardContent className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {(products ?? []).filter((p) => p.menuId === g.id).length} {t('menu.products').toLowerCase()}
+                    {(products ?? []).filter((p) => p.menuId === g.id).length} {t('catalog.products').toLowerCase()}
                   </span>
                   <Switch
                     checked={g.active}
-                    aria-label={`${g.name} ${t('menu.available')}`}
+                    aria-label={`${g.name} ${t('catalog.available')}`}
                     onCheckedChange={(v) => updateGroup(g.id, { active: v })}
                   />
                 </CardContent>
@@ -313,7 +313,7 @@ export default function MenuPage() {
       <FormDialog
         open={editing !== null}
         onOpenChange={(o) => !o && setEditing(null)}
-        title={editing === 'new' ? t('menu.addProduct') : t('common.edit')}
+        title={editing === 'new' ? t('catalog.addProduct') : t('common.edit')}
         fields={fields}
         initial={initial}
         onSubmit={save}
@@ -323,9 +323,9 @@ export default function MenuPage() {
             <div className="flex flex-col gap-2 rounded-lg bg-muted/60 p-3 text-sm">
               <dl className="grid grid-cols-3 gap-2">
                 {[
-                  { label: t('menu.youKeep'), value: split.net },
+                  { label: t('catalog.youKeep'), value: split.net },
                   { label: t('common.tax'), value: split.tax },
-                  { label: t('menu.customerPays'), value: split.gross },
+                  { label: t('catalog.customerPays'), value: split.gross },
                 ].map((r) => (
                   <div key={r.label}>
                     <dt className="text-[11px] text-muted-foreground">{r.label}</dt>
@@ -333,7 +333,7 @@ export default function MenuPage() {
                   </div>
                 ))}
               </dl>
-              <p className="text-xs text-pretty text-muted-foreground">{t('menu.taxHint')}</p>
+              <p className="text-xs text-pretty text-muted-foreground">{t('catalog.taxHint')}</p>
             </div>
           )
         }}

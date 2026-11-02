@@ -34,10 +34,11 @@ export interface Branch extends Entity {
   opensAt: string
   closesAt: string
   status: 'open' | 'closed'
-  seats: number
+  /** Checkout counters (tills) at the store. */
+  counters: number
 }
 
-export interface MenuCategory extends Entity {
+export interface ProductCategory extends Entity {
   name: string
   slug: string
   image: string
@@ -50,7 +51,7 @@ export interface ProductOption {
   price: number
 }
 
-/** A set of choices offered when ordering, e.g. "Patty: Single / Double" or "Extras: cheese, egg". */
+/** A set of choices offered at the till, e.g. "Pack: Half dozen / Dozen / Tray" or "Add-ons: gift wrap". */
 export interface ProductOptionGroup {
   id: ID
   name: string
@@ -59,11 +60,18 @@ export interface ProductOptionGroup {
   options: ProductOption[]
 }
 
-export type DietaryLabel = 'halal' | 'vegetarian' | 'spicy' | 'gluten-free'
+/** `unit`: rung up by the piece or pack. `weight`: loose goods priced per kg and weighed at the counter. */
+export type SoldBy = 'unit' | 'weight'
 
 export interface Product extends Entity {
   name: string
   sku: string
+  /** EAN/UPC printed on the pack; scanned at the till. Empty for loose goods weighed in store. */
+  barcode: string
+  brand: string
+  /** Pack size shown on the shelf label, e.g. "1 kg", "500 ml", "Pack of 6". "per kg" for loose goods. */
+  packSize: string
+  soldBy: SoldBy
   categoryId: ID
   description: string
   image: string
@@ -73,18 +81,8 @@ export interface Product extends Entity {
   taxRateId: ID | null
   available: boolean
   featured: boolean
-  dietary: DietaryLabel[]
   optionGroups: ProductOptionGroup[]
-  ingredients: string[]
   branchIds: ID[]
-  menuId: ID
-  schedule: 'all-day' | 'breakfast' | 'lunch' | 'dinner'
-}
-
-export interface MenuGroup extends Entity {
-  name: string
-  description: string
-  active: boolean
 }
 
 export type StockStatus = 'in-stock' | 'low' | 'out' | 'expiring'
@@ -100,11 +98,14 @@ export interface InventoryItem extends Entity {
   branchId: ID
   vendorId: ID
   expiryDate: string | null
-  kind: 'ingredient' | 'raw-material' | 'packaging'
+  /** `retail`: packed goods on the shelf. `loose`: weighed goods. `supplies`: bags, receipt rolls and other store consumables. */
+  kind: 'retail' | 'loose' | 'supplies'
+  /** Catalogue product this stock is sold as; null for store supplies. */
+  productId: ID | null
   image: string
 }
 
-export type MovementType = 'purchase' | 'consumption' | 'adjustment' | 'transfer' | 'wastage'
+export type MovementType = 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'wastage'
 
 export interface StockMovement extends Entity {
   itemId: ID
@@ -152,7 +153,7 @@ export interface VendorPayment extends Entity {
   reference: string
 }
 
-export type OrderType = 'dine-in' | 'takeaway' | 'delivery' | 'online'
+export type OrderType = 'walk-in' | 'pickup' | 'delivery' | 'online'
 export type OrderStatus =
   | 'pending'
   | 'confirmed'
@@ -169,13 +170,15 @@ export interface OrderItem {
   name: string
   quantity: number
   unitPrice: number
-  /** Names of the chosen options, e.g. ["Double patty", "Extra cheese"]. */
+  /** Names of the chosen options, e.g. ["Tray (30)"]. */
   options?: string[]
+  /** Set for loose goods weighed at the counter: `quantity` is then in kg and `unitPrice` is per kg. */
+  unit?: 'kg'
   /** Set when the line is a deal; `productId` then holds the deal id. */
   dealId?: ID
 }
 
-export type SalesChannel = 'dine-in' | 'takeaway' | 'own-delivery' | 'foodpanda' | 'website'
+export type SalesChannel = 'in-store' | 'pickup' | 'own-delivery' | 'foodpanda' | 'website'
 
 export type DeliveryStatus = 'unassigned' | 'assigned' | 'picked-up' | 'delivered' | 'failed'
 
@@ -236,7 +239,6 @@ export interface Order extends Entity {
   tax: number
   total: number
   branchId: ID
-  tableId: ID | null
   createdAt: string
   notes: string
   source: string
@@ -246,19 +248,6 @@ export interface Order extends Entity {
   website?: WebsiteInfo
   /** Discount applied from Discounts & Deals, if any. */
   discountId?: ID
-}
-
-export type TableStatus = 'available' | 'occupied' | 'reserved'
-
-export interface DiningTable extends Entity {
-  branchId: ID
-  number: number
-  capacity: number
-  status: TableStatus
-  x: number
-  y: number
-  shape: 'round' | 'square' | 'wide'
-  orderId: ID | null
 }
 
 export interface Customer extends Entity {
@@ -283,9 +272,9 @@ export type EmployeeRole =
   | 'admin'
   | 'manager'
   | 'cashier'
-  | 'waiter'
-  | 'chef'
-  | 'kitchen-staff'
+  | 'salesman'
+  | 'stock-keeper'
+  | 'packer'
   | 'rider'
   | 'accountant'
 
@@ -354,70 +343,6 @@ export interface ExpenseBudget extends Entity {
   monthly: number
 }
 
-/** One ingredient used to make a single serving of a menu item. */
-export interface RecipeIngredient {
-  id: ID
-  /** Inventory SKU; when set the cost follows the current stock price. */
-  sku: string | null
-  name: string
-  quantity: number
-  unit: string
-  /** Price per `unit` for ingredients that are not tracked in inventory. */
-  costPerUnit: number
-  /** Only recipe owners see what this is; everyone else sees a code name and the quantity. */
-  secret?: boolean
-}
-
-export interface RecipeStep {
-  id: ID
-  text: string
-  /** Minutes this step takes; 0 when it is not timed. */
-  minutes: number
-}
-
-/** Who besides the recipe owners can open the kitchen card. */
-export type RecipeVisibility = 'owner' | 'managers' | 'kitchen'
-
-/** A non-ingredient cost spent on every serving: packaging, gas, labour minutes and so on. */
-export interface RecipeExtra {
-  id: ID
-  label: string
-  amount: number
-}
-
-/** Costing sheet for one menu item. The record id equals the product id. */
-export interface Recipe extends Entity {
-  productId: ID
-  ingredients: RecipeIngredient[]
-  extras: RecipeExtra[]
-  /** Buffer for trimming, spillage and spoilage, as a percentage of ingredient cost. */
-  wastagePct: number
-  notes: string
-  updatedAt: string
-  // Recipe book fields. Sheets created from Item Costing do not have them yet.
-  method?: RecipeStep[]
-  prepMinutes?: number
-  cookMinutes?: number
-  /** Servings the kitchen usually cooks in one go; the kitchen card scales to it. */
-  batchServings?: number
-  allergens?: string[]
-  visibility?: RecipeVisibility
-  version?: number
-  updatedBy?: string
-}
-
-export type RecipeAccessAction = 'viewed' | 'edited' | 'printed' | 'unlocked' | 'unlock-failed'
-
-/** One line of the recipe access log: who looked at or changed which recipe, and when. */
-export interface RecipeAccessEvent extends Entity {
-  recipeId: ID | null
-  itemName: string
-  userName: string
-  role: RoleId
-  action: RecipeAccessAction
-  at: string
-}
-
 /** When a discount or deal can be used. Empty values mean "no restriction". */
 export interface PromoSchedule {
   /** yyyy-mm-dd, inclusive. */
@@ -460,7 +385,7 @@ export interface DealItem {
   quantity: number
 }
 
-/** A combo of menu items sold together at one price. */
+/** A bundle of products sold together at one price, e.g. a monthly ration pack. */
 export interface Deal extends Entity, PromoSchedule {
   name: string
   description: string
@@ -496,11 +421,11 @@ export interface Integration extends Entity {
 export type DeviceType =
   | 'pos-terminal'
   | 'receipt-printer'
-  | 'kitchen-printer'
+  | 'label-printer'
   | 'barcode-scanner'
+  | 'weighing-scale'
   | 'cash-drawer'
   | 'customer-display'
-  | 'kitchen-display'
 
 export interface Device extends Entity {
   name: string
@@ -550,8 +475,8 @@ export type RoleId =
   | 'administrator'
   | 'branch-manager'
   | 'cashier'
-  | 'waiter'
-  | 'chef'
+  | 'stock-keeper'
+  | 'packer'
   | 'rider'
   | 'accountant'
 
@@ -561,8 +486,7 @@ export type PermissionModule =
   | 'delivery'
   | 'website'
   | 'inventory'
-  | 'menu'
-  | 'recipes'
+  | 'catalog'
   | 'finance'
   | 'reports'
   | 'employees'
@@ -584,7 +508,7 @@ export interface ActivityLog extends Entity {
   action: string
   target: string
   at: string
-  type: 'order' | 'inventory' | 'finance' | 'user' | 'menu' | 'system'
+  type: 'order' | 'inventory' | 'finance' | 'user' | 'catalog' | 'system'
 }
 
 export interface NotificationItem extends Entity {

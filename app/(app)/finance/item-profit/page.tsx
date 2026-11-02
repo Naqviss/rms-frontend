@@ -369,7 +369,7 @@ export default function ItemProfitPage() {
             </ChartCard>
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-base">{t('expenses.menuTotals')}</CardTitle>
+                <CardTitle className="text-base">{t('expenses.catalogTotals')}</CardTitle>
                 <CardDescription>{formatNumber(profit.items.length)} items sold in this period</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">

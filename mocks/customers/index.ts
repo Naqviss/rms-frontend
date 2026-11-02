@@ -9,14 +9,14 @@ const names = [
   'Junaid Khalid', 'Anum Rehman',
 ]
 const cities = ['Karachi', 'Karachi', 'Karachi', 'Lahore', 'Islamabad']
-const dishes = ['Zinger Burger', 'Chicken Biryani', 'Chicken Tikka Pizza', 'Mint Lemonade', 'Club Sandwich', 'Chocolate Brownie', 'Beef Nihari', 'Mango Lassi']
+const staples = ['Milk 1 L', 'Chakki Atta 10 kg', 'Danedar Tea 900 g', 'Sandwich Bread', 'Farm Eggs', 'Cooking Oil 5 L', 'Washing Powder 1 kg', 'Tomatoes']
 const palette = ['oklch(0.55 0.2 272)', 'oklch(0.6 0.15 150)', 'oklch(0.65 0.18 30)', 'oklch(0.55 0.15 200)', 'oklch(0.6 0.18 330)']
 
 export const customers: Customer[] = (() => {
   const rng = createRng(555)
   return names.map((name, i) => {
     const orders = int(rng, 1, 64)
-    const spent = orders * int(rng, 900, 2600)
+    const spent = orders * int(rng, 1400, 6200)
     const lastVisitDays = int(rng, 0, 75)
     const segment: Customer['segment'] = orders > 40 ? 'vip' : lastVisitDays > 45 ? 'at-risk' : orders < 4 ? 'new' : 'regular'
     const auth = pick(rng, ['phone-otp', 'phone-otp', 'email', 'google', 'walk-in'] as const)
@@ -34,8 +34,8 @@ export const customers: Customer[] = (() => {
       segment,
       authMethod: auth,
       accountStatus: i === 19 ? 'blocked' : 'active',
-      notes: i % 5 === 0 ? 'Prefers extra spicy. Allergic to peanuts.' : i % 7 === 0 ? 'Usually orders for office lunches.' : '',
-      favoriteItems: [pick(rng, dishes), pick(rng, dishes)],
+      notes: i % 5 === 0 ? 'Buys monthly ration in the first week. Prefers delivery after 6 pm.' : i % 7 === 0 ? 'Orders office pantry supplies every Monday.' : '',
+      favoriteItems: [pick(rng, staples), pick(rng, staples)],
       color: pick(rng, palette),
     }
   })

@@ -1,7 +1,6 @@
 import {
   Bike,
   BarChart3,
-  BookLock,
   Building2,
   Globe,
   LayoutDashboard,
@@ -10,6 +9,7 @@ import {
   Percent,
   Plug,
   Receipt,
+  Boxes,
   TicketPercent,
   Settings,
   ShieldCheck,
@@ -18,7 +18,6 @@ import {
   Truck,
   UserCog,
   Users,
-  UtensilsCrossed,
   Wallet,
   Wifi,
   Briefcase,
@@ -64,8 +63,7 @@ export const appNav: NavGroup[] = [
         children: [
           { href: '/orders/pos', label: 'nav.pos' },
           { href: '/orders', label: 'nav.orderList' },
-          { href: '/orders/tables', label: 'nav.tables' },
-          { href: '/orders/kitchen', label: 'nav.kitchen' },
+          { href: '/orders/picking', label: 'nav.picking' },
         ],
       },
       {
@@ -101,18 +99,17 @@ export const appNav: NavGroup[] = [
           { href: '/vendors/restock', label: 'nav.purchaseOrders' },
         ],
       },
-      { href: '/menu', label: 'nav.menu', icon: UtensilsCrossed, module: 'menu' },
+      { href: '/products', label: 'nav.products', icon: Boxes, module: 'catalog' },
       {
         href: '/promotions',
         label: 'nav.promotions',
         icon: TicketPercent,
-        module: 'menu',
+        module: 'catalog',
         children: [
           { href: '/promotions', label: 'nav.discounts' },
           { href: '/promotions/deals', label: 'nav.deals' },
         ],
       },
-      { href: '/recipes', label: 'nav.recipes', icon: BookLock, module: 'recipes', minPlan: 'professional' },
     ],
   },
   {
@@ -143,7 +140,6 @@ export const appNav: NavGroup[] = [
           { href: '/finance/transactions', label: 'nav.transactions' },
           { href: '/finance/expenses', label: 'nav.expenses' },
           { href: '/finance/item-profit', label: 'nav.itemProfit' },
-          { href: '/finance/costing', label: 'nav.costing' },
           { href: '/finance/closing', label: 'nav.dailyClosing' },
         ],
       },

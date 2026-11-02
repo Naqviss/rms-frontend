@@ -8,5 +8,5 @@ export const config = {
   mockLatencyMs: Number(process.env.NEXT_PUBLIC_MOCK_LATENCY_MS ?? 180),
   referenceDate: '2026-10-15',
   currency: 'PKR',
-  storagePrefix: 'rms:v1:',
+  storagePrefix: 'mart:v1:',
 } as const

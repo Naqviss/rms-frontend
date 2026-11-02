@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { config } from '@/lib/config'
 
 export interface WebsiteSettings {
   acceptDelivery: boolean
@@ -40,10 +41,10 @@ export const useChannelStore = create<ChannelState>()(
       website: {
         acceptDelivery: true,
         acceptPickup: true,
-        minOrder: 800,
-        deliveryFee: 150,
+        minOrder: 1000,
+        deliveryFee: 100,
         freeDeliveryOver: 3000,
-        prepMinutes: 25,
+        prepMinutes: 15,
         paymentCash: true,
         paymentOnline: true,
       },
@@ -54,6 +55,6 @@ export const useChannelStore = create<ChannelState>()(
       setWebsiteOrderingEnabled: (websiteOrderingEnabled) => set({ websiteOrderingEnabled }),
       setWebsite: (patch) => set((s) => ({ website: { ...s.website, ...patch } })),
     }),
-    { name: 'channel-settings-v2' },
+    { name: `${config.storagePrefix}channel-settings` },
   ),
 )

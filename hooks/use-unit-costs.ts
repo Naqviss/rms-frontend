@@ -1,23 +1,20 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useInventory, useProducts, useRecipes } from '@/hooks/use-data'
-import { ingredientCatalog, unitCostMap } from '@/lib/utils/costing'
+import { useInventory, useProducts } from '@/hooks/use-data'
+import { unitCostMap } from '@/lib/utils/costing'
 
-/** Ingredient catalogue plus the cost of one serving of every menu item, from costing sheets where they exist. */
+/** Products plus the cost of one unit of each, from stock purchase prices where the product is stocked. */
 export function useUnitCosts() {
   const { data: products, isLoading: productsLoading } = useProducts()
-  const { data: recipes, isLoading: recipesLoading } = useRecipes()
   const { data: inventory, isLoading: inventoryLoading } = useInventory()
 
-  return useMemo(() => {
-    const catalog = ingredientCatalog(inventory ?? [])
-    return {
+  return useMemo(
+    () => ({
       products: products ?? [],
-      recipes: recipes ?? [],
-      catalog,
-      unitCosts: unitCostMap(products ?? [], recipes ?? [], catalog),
-      isLoading: productsLoading || recipesLoading || inventoryLoading,
-    }
-  }, [products, recipes, inventory, productsLoading, recipesLoading, inventoryLoading])
+      unitCosts: unitCostMap(products ?? [], inventory ?? []),
+      isLoading: productsLoading || inventoryLoading,
+    }),
+    [products, inventory, productsLoading, inventoryLoading],
+  )
 }

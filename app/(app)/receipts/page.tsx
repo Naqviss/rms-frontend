@@ -17,17 +17,17 @@ import { useOrders } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
-import { formatCurrency, formatDateTime } from '@/lib/utils/format'
+import { formatCurrency, formatDateTime, formatLineQty } from '@/lib/utils/format'
 
 export default function ReceiptsPage() {
   const { t } = useT()
   const { data } = useOrders()
   const { inBranch } = useScope()
   const [paper, setPaper] = useState('80')
-  const [businessName, setBusinessName] = useState('Dastarkhwan Restaurant')
-  const [address, setAddress] = useState('MM Alam Road, Gulberg III, Lahore')
+  const [businessName, setBusinessName] = useState('Al-Noor Mart')
+  const [address, setAddress] = useState('Block 5, Clifton, Karachi')
   const [ntn, setNtn] = useState('NTN 1234567-8')
-  const [footer, setFooter] = useState('Thank you for dining with us!')
+  const [footer, setFooter] = useState('Thank you for shopping with us! Exchange within 7 days with this receipt.')
   const [showTax, setShowTax] = useState(true)
   const [showQr, setShowQr] = useState(true)
   const [showCashier, setShowCashier] = useState(true)
@@ -115,31 +115,38 @@ export default function ReceiptsPage() {
                 <>
                   <p>{order.number}</p>
                   <p>{formatDateTime(order.createdAt)}</p>
-                  {showCashier && <p>Cashier: Ayesha</p>}
+                  {showCashier && <p>Cashier: Kashif · Counter 1</p>}
                   <hr className="my-2 border-dashed border-black/40" />
                   {order.items.map((i, idx) => (
                     <div key={idx} className="flex justify-between gap-2">
                       <span className="min-w-0 truncate">
-                        {i.quantity} x {i.name}
+                        {formatLineQty(i)} {i.name}
                       </span>
                       <span>{formatCurrency(i.quantity * i.unitPrice)}</span>
                     </div>
                   ))}
                   <hr className="my-2 border-dashed border-black/40" />
                   <div className="flex justify-between">
-                    <span>Subtotal</span>
+                    <span>Subtotal ({order.items.length} items)</span>
                     <span>{formatCurrency(order.subtotal)}</span>
                   </div>
-                  {showTax && (
+                  {order.discount > 0 && (
                     <div className="flex justify-between">
-                      <span>Tax</span>
-                      <span>{formatCurrency(order.tax)}</span>
+                      <span>Discount</span>
+                      <span>-{formatCurrency(order.discount)}</span>
                     </div>
                   )}
                   <div className="mt-1 flex justify-between text-sm font-bold">
                     <span>TOTAL</span>
                     <span>{formatCurrency(order.total)}</span>
                   </div>
+                  {showTax && (
+                    // Shelf prices include GST, so the tax is shown as part of the total rather than added to it.
+                    <div className="flex justify-between">
+                      <span>GST included</span>
+                      <span>{formatCurrency(order.tax)}</span>
+                    </div>
+                  )}
                 </>
               )}
               <hr className="my-2 border-dashed border-black/40" />

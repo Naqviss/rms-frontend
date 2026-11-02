@@ -1,7 +1,6 @@
 import type {
   DeliveryInfo,
   DeliveryStatus,
-  DiningTable,
   FoodpandaInfo,
   Order,
   OrderItem,
@@ -14,11 +13,12 @@ import type {
 } from '@/types'
 import { config } from '@/lib/config'
 import { createRng, int, isoDaysAgo, pick } from '@/lib/utils/seed'
-import { products } from '@/mocks/menu'
+import { products } from '@/mocks/catalog'
 import { customers } from '@/mocks/customers'
 
-export const TAX_RATE = 0.16
-export const FOODPANDA_COMMISSION_RATE = 28
+/** Shelf prices include GST; this is the share of a typical basket that is tax (18% inclusive on most lines, fresh produce exempt). */
+export const TAX_SHARE = 0.13
+export const FOODPANDA_COMMISSION_RATE = 18
 
 export const riders: Rider[] = [
   { id: 'r1', name: 'Bilal Ahmed', phone: '+92 300 1100221', vehicle: 'bike', branchId: 'b1', status: 'available' },
@@ -34,8 +34,8 @@ const STREETS = ['Street 12', 'Main Boulevard', 'Lane 7', 'Block C, House 42', '
 const FOODPANDA_RIDERS = ['Imran K.', 'Adeel S.', 'Noman R.', 'Kashif M.', 'Tariq H.']
 
 const channelFor = (type: OrderType, source: string): SalesChannel => {
-  if (type === 'dine-in') return 'dine-in'
-  if (type === 'takeaway') return 'takeaway'
+  if (type === 'walk-in') return 'in-store'
+  if (type === 'pickup') return 'pickup'
   if (type === 'online' && source === 'Foodpanda') return 'foodpanda'
   if (type === 'online' && source === 'Website') return 'website'
   return 'own-delivery'
@@ -54,38 +54,47 @@ export const orders: Order[] = (() => {
   const available = products.filter((p) => p.available)
   for (let i = 0; i < 110; i++) {
     const dayAgo = i < 24 ? 0 : Math.floor((i - 24) / 6) + 1
-    const hour = dayAgo === 0 ? int(rng, 11, 18) : int(rng, 12, 23)
-    const type: OrderType = pick(rng, ['dine-in', 'dine-in', 'takeaway', 'delivery', 'delivery', 'online', 'online'] as const)
-    const items: OrderItem[] = Array.from({ length: int(rng, 1, 4) }, () => {
-      const p = pick(rng, available)
-      // Every pick-one group gets a random choice; about a third of orders add one extra.
-      const chosen = p.optionGroups.flatMap((g) =>
-        g.type === 'single' ? [pick(rng, g.options)] : rng() < 0.35 ? [pick(rng, g.options)] : [],
-      )
-      return {
-        productId: p.id,
-        name: p.name,
-        quantity: int(rng, 1, 3),
-        unitPrice: p.basePrice + chosen.reduce((s, o) => s + o.price, 0),
-        options: chosen.length ? chosen.map((o) => o.name) : undefined,
-      }
-    })
-    const subtotal = items.reduce((s, it) => s + it.quantity * it.unitPrice, 0)
-    const discount = rng() < 0.15 ? Math.round(subtotal * 0.1) : 0
-    const tax = Math.round((subtotal - discount) * TAX_RATE)
+    const hour = dayAgo === 0 ? int(rng, 9, 18) : int(rng, 8, 22)
+    const type: OrderType = pick(rng, ['walk-in', 'walk-in', 'walk-in', 'pickup', 'delivery', 'delivery', 'online', 'online'] as const)
+    // A basket holds several different products, never the same one twice.
+    const basket = new Set<string>()
+    const items: OrderItem[] = Array.from({ length: int(rng, 2, 7) }, () => pick(rng, available))
+      .filter((p) => !basket.has(p.id) && basket.add(p.id))
+      .map((p) => {
+        if (p.soldBy === 'weight') {
+          const kg = pick(rng, [0.5, 1, 1, 1.5, 2, 2.5] as const)
+          return { productId: p.id, name: p.name, quantity: kg, unit: 'kg' as const, unitPrice: p.basePrice }
+        }
+        const chosen = p.optionGroups.flatMap((g) => (g.type === 'single' ? [pick(rng, g.options)] : rng() < 0.2 ? [pick(rng, g.options)] : []))
+        return {
+          productId: p.id,
+          name: p.name,
+          quantity: int(rng, 1, 4),
+          unitPrice: p.basePrice + chosen.reduce((s, o) => s + o.price, 0),
+          options: chosen.length ? chosen.map((o) => o.name) : undefined,
+        }
+      })
+    const subtotal = Math.round(items.reduce((s, it) => s + it.quantity * it.unitPrice, 0))
+    const discount = rng() < 0.15 ? Math.round(subtotal * 0.05) : 0
+    const tax = Math.round((subtotal - discount) * TAX_SHARE)
     const customer = rng() < 0.6 ? pick(rng, customers) : null
     const status: OrderStatus =
-      dayAgo === 0
-        ? pick(rng, ['pending', 'confirmed', 'preparing', 'preparing', 'ready', 'out-for-delivery', 'completed', 'completed'] as const)
-        : rng() < 0.07
+      // Walk-in customers pay and leave with their bags, so those sales are complete at the till.
+      type === 'walk-in'
+        ? 'completed'
+        : dayAgo === 0
+          ? pick(rng, ['pending', 'confirmed', 'preparing', 'preparing', 'ready', 'out-for-delivery', 'completed', 'completed'] as const)
+          : rng() < 0.07
           ? 'cancelled'
           : 'completed'
     const source =
       type === 'online'
         ? pick(rng, ['Foodpanda', 'Foodpanda', 'Foodpanda', 'Website', 'Website', 'Mobile app'] as const)
         : type === 'delivery'
-          ? 'Phone call'
-          : 'POS'
+          ? pick(rng, ['Phone call', 'WhatsApp'] as const)
+          : type === 'pickup'
+            ? 'WhatsApp'
+            : 'POS'
     const channel = channelFor(type, source)
     const branchId = pick(rng, ['b1', 'b1', 'b2', 'b3'])
     const method: PaymentMethod =
@@ -94,7 +103,8 @@ export const orders: Order[] = (() => {
         : channel === 'website'
           ? pick(rng, ['online', 'online', 'cash'] as const)
           : pick(rng, ['cash', 'cash', 'card', 'online', 'split'] as const)
-    const total = subtotal - discount + tax
+    // Tax is already inside shelf prices, so it does not add to the bill.
+    const total = subtotal - discount
 
     let delivery: DeliveryInfo | undefined
     let foodpanda: FoodpandaInfo | undefined
@@ -119,9 +129,9 @@ export const orders: Order[] = (() => {
         address: `${pick(rng, STREETS)}, ${pick(rng, AREAS)}`,
         area: pick(rng, AREAS),
         phone: customer?.phone ?? `+92 3${int(rng, 0, 4)}${int(rng, 0, 9)} ${int(rng, 1000000, 9999999)}`,
-        fee: distanceKm > 5 ? 250 : distanceKm > 2.5 ? 180 : 120,
+        fee: subtotal >= 3000 ? 0 : distanceKm > 4 ? 150 : 100,
         distanceKm,
-        etaMinutes: Math.round(12 + distanceKm * 4),
+        etaMinutes: Math.round(15 + distanceKm * 5),
         status: deliveryStatusFor(status, assigned),
         riderId: rider?.id ?? null,
         riderName: rider?.name ?? null,
@@ -135,12 +145,12 @@ export const orders: Order[] = (() => {
       foodpanda = {
         externalId: `FP-${int(rng, 10, 99)}-${int(rng, 1000, 9999)}`,
         acceptance,
-        prepMinutes: pick(rng, [15, 20, 25, 30] as const),
+        prepMinutes: pick(rng, [10, 15, 20] as const),
         commissionRate: FOODPANDA_COMMISSION_RATE,
         commission,
         netPayout: total - commission,
         riderName: status === 'ready' || status === 'out-for-delivery' || status === 'completed' ? pick(rng, FOODPANDA_RIDERS) : null,
-        rejectReason: acceptance === 'rejected' ? pick(rng, ['Item out of stock', 'Kitchen too busy', 'Outside delivery hours'] as const) : undefined,
+        rejectReason: acceptance === 'rejected' ? pick(rng, ['Item out of stock', 'Store too busy', 'Outside delivery hours'] as const) : undefined,
       }
     }
 
@@ -161,9 +171,8 @@ export const orders: Order[] = (() => {
       tax,
       total,
       branchId,
-      tableId: type === 'dine-in' ? `tb${int(rng, 1, 12)}` : null,
       createdAt: isoDaysAgo(config.referenceDate, dayAgo, hour, int(rng, 0, 59)),
-      notes: rng() < 0.2 ? 'Less spicy please' : '',
+      notes: rng() < 0.2 ? pick(rng, ['Call on arrival', 'Leave with the guard', 'Ripe bananas only', 'Replace if out of stock'] as const) : '',
       source,
       channel,
       delivery,
@@ -172,29 +181,4 @@ export const orders: Order[] = (() => {
     })
   }
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-})()
-
-export const tables: DiningTable[] = (() => {
-  const rng = createRng(88)
-  const layout: Array<[number, number, DiningTable['shape'], number]> = [
-    [8, 10, 'round', 2], [30, 10, 'round', 2], [52, 10, 'square', 4], [74, 10, 'square', 4],
-    [8, 40, 'square', 4], [30, 40, 'wide', 6], [58, 40, 'wide', 6], [84, 40, 'round', 2],
-    [8, 72, 'round', 4], [30, 72, 'square', 4], [52, 72, 'wide', 8], [78, 72, 'wide', 8],
-  ]
-  return ['b1', 'b2', 'b3'].flatMap((branchId) =>
-    layout.map(([x, y, shape, capacity], i) => {
-      const status = pick(rng, ['available', 'available', 'occupied', 'occupied', 'reserved'] as const)
-      return {
-        id: `tb${i + 1}-${branchId}`,
-        branchId,
-        number: i + 1,
-        capacity,
-        status,
-        x,
-        y,
-        shape,
-        orderId: status === 'occupied' ? `o${int(rng, 1, 22)}` : null,
-      }
-    }),
-  )
 })()

@@ -20,8 +20,8 @@ interface StatCardProps {
 
 const toneTile = {
   primary: 'bg-primary/12 text-primary',
-  dine: 'bg-dine/15 text-dine',
-  takeaway: 'bg-takeaway/20 text-takeaway',
+  instore: 'bg-instore/15 text-instore',
+  pickup: 'bg-pickup/20 text-pickup',
   delivery: 'bg-delivery/15 text-delivery',
   foodpanda: 'bg-foodpanda/15 text-foodpanda',
   website: 'bg-website/15 text-website',
@@ -30,7 +30,7 @@ const toneTile = {
   danger: 'bg-destructive/12 text-destructive',
 } as const
 
-const toneCycle = ['primary', 'delivery', 'takeaway', 'dine'] as const
+const toneCycle = ['primary', 'delivery', 'pickup', 'instore'] as const
 let cycle = 0
 
 export function StatCard({ label, value, icon: Icon, delta, deltaLabel, hint, invertDelta, tone, className }: StatCardProps) {

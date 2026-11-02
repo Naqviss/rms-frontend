@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { useOrders } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
-import { formatRelative } from '@/lib/utils/format'
+import { formatLineQty, formatRelative } from '@/lib/utils/format'
 import { branchName } from '@/mocks/branches'
 import type { Order, OrderStatus } from '@/types'
 
@@ -70,7 +70,7 @@ export default function KitchenPage() {
                     <ul className="flex flex-col gap-1 text-sm">
                       {o.items.map((i, idx) => (
                         <li key={idx} className="flex gap-2">
-                          <span className="font-semibold tabular-nums">{i.quantity}x</span>
+                          <span className="shrink-0 font-semibold tabular-nums">{formatLineQty(i)}</span>
                           <span className="min-w-0">
                             {i.name}
                             {!!i.options?.length && <span className="block text-xs text-muted-foreground">{i.options.join(', ')}</span>}

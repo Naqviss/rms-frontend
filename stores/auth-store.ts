@@ -6,7 +6,6 @@ import { persist } from 'zustand/middleware'
 import { config } from '@/lib/config'
 import { appUsers } from '@/mocks/platform'
 import { useAppStore } from '@/stores/app-store'
-import { useRecipeVault } from '@/stores/recipe-vault-store'
 import type { RoleId } from '@/types'
 
 export interface DemoAccount {
@@ -22,8 +21,8 @@ export interface DemoAccount {
 /** Prototype-only credentials. Replace with a real auth provider before going live. */
 export const demoAccounts: DemoAccount[] = [
   { username: 'admin', password: 'admin', userId: 'u1', role: 'tenant-owner', home: '/dashboard' },
-  { username: 'kitchen', password: 'kitchen', userId: 'u8', role: 'chef', home: '/orders/kitchen' },
-  { username: 'waiter', password: 'waiter', userId: 'u10', role: 'waiter', home: '/orders/tables' },
+  { username: 'stock', password: 'stock', userId: 'u8', role: 'stock-keeper', home: '/inventory' },
+  { username: 'packer', password: 'packer', userId: 'u10', role: 'packer', home: '/orders/picking' },
   { username: 'counter', password: 'counter', userId: 'u6', role: 'cashier', home: '/orders/pos' },
 ]
 
@@ -58,10 +57,7 @@ export const useAuthStore = create<AuthState>()(
         set({ username: account.username, signedInAt: new Date().toISOString() })
         return account
       },
-      logout: () => {
-        useRecipeVault.getState().lock()
-        set({ username: null, signedInAt: null })
-      },
+      logout: () => set({ username: null, signedInAt: null }),
     }),
     {
       name: `${config.storagePrefix}auth`,

@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { config } from '@/lib/config'
 import { isoDaysAgo } from '@/lib/utils/seed'
 import { profitabilityWithOverhead } from '@/lib/utils/profitability'
-import { ingredientCatalog, unitCostMap } from '@/lib/utils/costing'
+import { unitCostMap } from '@/lib/utils/costing'
 import { aggregateSales, salesByBranch } from '@/mocks/finance'
 import { branchName, currentBranchIds } from '@/mocks/branches'
 import { stockStatus } from '@/mocks/inventory'
@@ -16,7 +16,6 @@ import {
   useInventory,
   useOrders,
   useProducts,
-  useRecipes,
   useTransactions,
   useVendors,
 } from '@/hooks/use-data'
@@ -35,7 +34,6 @@ export function useDashboardData() {
   const { data: inventory } = useInventory()
   const { data: transactions } = useTransactions()
   const { data: vendors } = useVendors()
-  const { data: recipes } = useRecipes()
 
   return useMemo(() => {
     const series = aggregateSales(branchIds, days)
@@ -80,7 +78,7 @@ export function useDashboardData() {
     // Hero items always look at the trading day itself, whatever range the top bar is set to.
     const todayOrders = inBranch(orders ?? []).filter((o) => o.createdAt.startsWith(config.referenceDate) && o.status !== 'cancelled')
     const todayPl = aggregateSales(branchIds, 1)[0]
-    const unitCosts = unitCostMap(products ?? [], recipes ?? [], ingredientCatalog(inventory ?? []))
+    const unitCosts = unitCostMap(products ?? [], inventory ?? [])
     const today = profitabilityWithOverhead(todayOrders, products ?? [], todayPl ?? { revenue: 0, expenses: 0 }, null, unitCosts)
 
     const alerts = inBranch(inventory ?? [])
@@ -105,7 +103,7 @@ export function useDashboardData() {
       activeEmployees: scopedEmployees.filter((e) => e.status === 'active').length,
       lowStockCount: alerts.length,
       heroItems: {
-        items: today.items.map((i) => ({ ...i, category: categoryName.get(i.categoryId) ?? 'Menu item' })),
+        items: today.items.map((i) => ({ ...i, category: categoryName.get(i.categoryId) ?? 'Product' })),
         orders: todayOrders.length,
         profit: today.profit,
         date: config.referenceDate,
@@ -115,7 +113,7 @@ export function useDashboardData() {
       byPayment: [...payMap.entries()].map(([name, value]) => ({ name, value })),
       branchPerformance: currentBranchIds.map((id) => ({
         id,
-        name: branchName(id).replace(/ (Flagship|Phase 6|Branch)$/i, ''),
+        name: branchName(id).replace(/ (Store|Phase 6|Branch)$/i, ''),
         revenue: sum(salesByBranch[id].slice(-days).map((p) => p.revenue)),
         profit: sum(salesByBranch[id].slice(-days).map((p) => p.profit)),
       })),
@@ -126,7 +124,7 @@ export function useDashboardData() {
       inventoryAlerts: alerts.slice(0, 6),
       topEmployees: [...scopedEmployees].sort((a, b) => b.performance - a.performance).slice(0, 5),
     }
-  }, [branchIds, days, inBranch, orders, products, categories, customers, employees, inventory, transactions, vendors, recipes])
+  }, [branchIds, days, inBranch, orders, products, categories, customers, employees, inventory, transactions, vendors])
 }
 
 export type DashboardData = ReturnType<typeof useDashboardData>

@@ -1,7 +1,7 @@
 import type { RecurringExpense, RecurringFrequency } from '@/types'
 
 export const EXPENSE_CATEGORIES = [
-  'Ingredients',
+  'Stock purchase',
   'Salaries',
   'Rent',
   'Utilities',
@@ -10,7 +10,6 @@ export const EXPENSE_CATEGORIES = [
   'Maintenance',
   'Platform commission',
   'Rider payouts',
-  'Vendor payment',
   'Other',
 ]
 

@@ -1,73 +1,97 @@
 import type { InventoryItem, StockMovement } from '@/types'
 import { config } from '@/lib/config'
 import { createRng, int, isoDaysAgo, pick } from '@/lib/utils/seed'
+import { categories, products } from '@/mocks/catalog'
 
-type BaseItem = [name: string, category: string, unit: string, cost: number, min: number, kind: InventoryItem['kind'], vendorId: string, perishable: boolean, image: string]
+/** Supplier for each catalogue category; store supplies come from v9. */
+const vendorByCategory: Record<string, string> = { c1: 'v1', c2: 'v2', c3: 'v3', c4: 'v4', c5: 'v5', c6: 'v6', c7: 'v7', c8: 'v8' }
+const perishable = new Set(['c2', 'c5', 'c6'])
 
-const base: BaseItem[] = [
-  ['Chicken breast', 'Meat', 'kg', 620, 20, 'ingredient', 'v1', true, '/food/burgers.png'],
-  ['Beef mince', 'Meat', 'kg', 1450, 15, 'ingredient', 'v1', true, '/food/burgers.png'],
-  ['Mutton', 'Meat', 'kg', 2600, 10, 'ingredient', 'v1', true, '/food/desi.png'],
-  ['Basmati rice', 'Dry goods', 'kg', 380, 40, 'ingredient', 'v2', false, '/food/desi.png'],
-  ['Wheat flour (maida)', 'Dry goods', 'kg', 140, 50, 'raw-material', 'v2', false, '/food/pizza.png'],
-  ['Cooking oil', 'Oils', 'L', 520, 30, 'raw-material', 'v2', false, '/food/desi.png'],
-  ['Mozzarella cheese', 'Dairy', 'kg', 1650, 12, 'ingredient', 'v3', true, '/food/pizza.png'],
-  ['Cheddar slices', 'Dairy', 'kg', 1400, 8, 'ingredient', 'v3', true, '/food/burgers.png'],
-  ['Fresh milk', 'Dairy', 'L', 210, 40, 'ingredient', 'v3', true, '/food/beverages.png'],
-  ['Yogurt (dahi)', 'Dairy', 'kg', 260, 20, 'ingredient', 'v3', true, '/food/beverages.png'],
-  ['Tomatoes', 'Vegetables', 'kg', 120, 25, 'ingredient', 'v4', true, '/food/pizza.png'],
-  ['Onions', 'Vegetables', 'kg', 90, 40, 'ingredient', 'v4', false, '/food/desi.png'],
-  ['Lettuce', 'Vegetables', 'kg', 220, 10, 'ingredient', 'v4', true, '/food/sandwiches.png'],
-  ['Capsicum', 'Vegetables', 'kg', 280, 8, 'ingredient', 'v4', true, '/food/pizza.png'],
-  ['Burger buns', 'Bakery', 'pcs', 38, 150, 'raw-material', 'v5', true, '/food/burgers.png'],
-  ['Sandwich bread', 'Bakery', 'loaf', 160, 30, 'raw-material', 'v5', true, '/food/sandwiches.png'],
-  ['Eggs', 'Dairy', 'dozen', 360, 20, 'ingredient', 'v6', true, '/food/sandwiches.png'],
-  ['Tea leaves', 'Beverages', 'kg', 1450, 6, 'ingredient', 'v7', false, '/food/beverages.png'],
-  ['Sugar', 'Dry goods', 'kg', 170, 30, 'raw-material', 'v2', false, '/food/desserts.png'],
-  ['Soft drink cans', 'Beverages', 'case', 1900, 12, 'ingredient', 'v7', false, '/food/beverages.png'],
-  ['Takeaway boxes (L)', 'Packaging', 'pcs', 28, 300, 'packaging', 'v8', false, '/food/burgers.png'],
-  ['Pizza boxes (13")', 'Packaging', 'pcs', 55, 150, 'packaging', 'v8', false, '/food/pizza.png'],
-  ['Paper cups (12oz)', 'Packaging', 'pcs', 9, 500, 'packaging', 'v8', false, '/food/beverages.png'],
-  ['Chocolate (cooking)', 'Dessert', 'kg', 1250, 5, 'ingredient', 'v6', false, '/food/desserts.png'],
-  ['Red chili powder', 'Spices', 'kg', 780, 8, 'ingredient', 'v9', false, '/food/desi.png'],
-  ['Garam masala', 'Spices', 'kg', 1650, 5, 'ingredient', 'v9', false, '/food/desi.png'],
-]
+interface StockSeed {
+  productId: string | null
+  name: string
+  sku: string
+  category: string
+  unit: string
+  cost: number
+  min: number
+  kind: InventoryItem['kind']
+  vendorId: string
+  perishable: boolean
+  image: string
+}
 
+const productStock: StockSeed[] = products.map((p, i) => ({
+  productId: p.id,
+  name: p.name,
+  sku: p.sku,
+  category: categories.find((c) => c.id === p.categoryId)?.name ?? 'Other',
+  unit: p.soldBy === 'weight' ? 'kg' : p.packSize === 'per dozen' ? 'dozen' : 'pcs',
+  cost: p.costPrice,
+  // Fast movers (cheap staples, milk, bread) need a deeper shelf than slow lines like diapers.
+  min: p.soldBy === 'weight' ? 25 : p.basePrice < 300 ? 36 + (i % 3) * 12 : p.basePrice < 1000 ? 18 : 8,
+  kind: p.soldBy === 'weight' ? 'loose' : 'retail',
+  vendorId: vendorByCategory[p.categoryId] ?? 'v1',
+  perishable: perishable.has(p.categoryId),
+  image: p.image,
+}))
+
+const supplies: StockSeed[] = [
+  ['Shopping bags (small)', 'SUP-001', 'pcs', 3, 500],
+  ['Shopping bags (large)', 'SUP-002', 'pcs', 6, 300],
+  ['Receipt paper rolls (80mm)', 'SUP-003', 'roll', 180, 20],
+  ['Shelf price labels', 'SUP-004', 'sheet', 45, 30],
+].map(([name, sku, unit, cost, min]) => ({
+  productId: null,
+  name: String(name),
+  sku: String(sku),
+  category: 'Store supplies',
+  unit: String(unit),
+  cost: Number(cost),
+  min: Number(min),
+  kind: 'supplies' as const,
+  vendorId: 'v9',
+  perishable: false,
+  image: '/mart/supplies.svg',
+}))
+
+const base = [...productStock, ...supplies]
 const branchIds = ['b1', 'b2', 'b3']
 
 export const inventoryItems: InventoryItem[] = branchIds.flatMap((branchId, bi) => {
   const rng = createRng(1000 + bi * 77)
-  return base.map(([name, category, unit, costPerUnit, minStock, kind, vendorId, perishable, image], i) => {
+  return base.map((b) => {
     const state = rng()
     const quantity =
-      state < 0.14 ? 0 : state < 0.32 ? Math.round(minStock * (0.3 + rng() * 0.6)) : Math.round(minStock * (1.4 + rng() * 3.2))
-    const expiry = perishable && state > 0.5 && state < 0.62 ? isoDaysAgo(config.referenceDate, -int(rng, 1, 4)) : perishable ? isoDaysAgo(config.referenceDate, -int(rng, 6, 20)) : null
+      state < 0.1 ? 0 : state < 0.28 ? Math.round(b.min * (0.3 + rng() * 0.6)) : Math.round(b.min * (1.4 + rng() * 3.2))
+    const expiry = b.perishable && state > 0.5 && state < 0.62 ? isoDaysAgo(config.referenceDate, -int(rng, 1, 4)) : b.perishable ? isoDaysAgo(config.referenceDate, -int(rng, 6, 20)) : null
     return {
-      id: `inv-${i + 1}-${branchId}`,
-      name,
-      sku: `INV-${String(i + 1).padStart(3, '0')}`,
-      category,
+      id: `inv-${b.sku}-${branchId}`,
+      name: b.name,
+      sku: b.sku,
+      category: b.category,
       quantity,
-      unit,
-      minStock,
-      costPerUnit,
+      unit: b.unit,
+      minStock: b.min,
+      costPerUnit: b.cost,
       branchId,
-      vendorId,
+      vendorId: b.vendorId,
       expiryDate: expiry ? expiry.slice(0, 10) : null,
-      kind,
-      image,
+      kind: b.kind,
+      productId: b.productId,
+      image: b.image,
     }
   })
 })
 
-const movementTypes = ['purchase', 'consumption', 'consumption', 'wastage', 'adjustment', 'transfer'] as const
+const movementTypes = ['purchase', 'sale', 'sale', 'wastage', 'adjustment', 'transfer'] as const
 const staff = ['Faisal Ahmed', 'Nadia Hussain', 'Bilal Sheikh', 'Kashif Ali']
 const notes: Record<(typeof movementTypes)[number], string[]> = {
   purchase: ['Weekly vendor delivery', 'Emergency top-up', 'Bulk order received'],
-  consumption: ['Daily kitchen usage', 'Prep for dinner service', 'Lunch rush usage'],
-  wastage: ['Spoiled in storage', 'Dropped during prep', 'Expired stock removed'],
-  adjustment: ['Stock count correction', 'Audit adjustment'],
-  transfer: ['Transfer to Gulshan branch', 'Transfer from Clifton branch'],
+  sale: ['Counter sales', 'Evening rush sales', 'Delivery orders packed'],
+  wastage: ['Expired stock removed', 'Damaged in handling', 'Leaking packs written off'],
+  adjustment: ['Shelf count correction', 'Monthly stock audit'],
+  transfer: ['Transfer to Gulshan store', 'Transfer from Clifton store'],
 }
 
 export const stockMovements: StockMovement[] = (() => {
