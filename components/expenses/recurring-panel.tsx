@@ -15,7 +15,7 @@ import { useRecurringExpenses, useTransactions } from '@/hooks/use-data'
 import { cn } from '@/lib/utils'
 import { advanceDue, daysUntil, dueLabel, EXPENSE_CATEGORIES, FREQUENCY_LABEL, monthlyEquivalent } from '@/lib/utils/expenses'
 import { formatCompactCurrency, formatCurrency, formatDate } from '@/lib/utils/format'
-import { branchName, currentTenantBranches } from '@/mocks/branches'
+import { branchName, currentTenantBranches } from '@/lib/directory'
 import type { PaymentMethod, RecurringExpense, RecurringFrequency } from '@/types'
 
 interface RecurringPanelProps {

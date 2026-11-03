@@ -13,7 +13,7 @@ import { FormDialog, type FormValues } from '@/components/common/form-dialog'
 import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
 import { useProducts, useTaxRates } from '@/hooks/use-data'
-import { currentTenantBranches } from '@/mocks/branches'
+import { currentTenantBranches } from '@/lib/directory'
 import { useT } from '@/lib/i18n/use-t'
 import type { TaxRate } from '@/types'
 

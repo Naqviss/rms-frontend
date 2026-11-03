@@ -17,18 +17,16 @@ import { DataTable } from '@/components/common/data-table'
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { TaxToggle } from '@/components/common/tax-toggle'
-import { useOrders, useTaxRates } from '@/hooks/use-data'
+import { useCategories, useOrders, useTaxRates } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useUnitCosts } from '@/hooks/use-unit-costs'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCompactCurrency, formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format'
 import { profitabilityWithOverhead, rankItems, RANK_METRICS, type ItemProfit, type RankMetric } from '@/lib/utils/profitability'
-import { aggregateSales } from '@/mocks/finance'
-import { categories } from '@/mocks/menu'
+import { presetWindow, sumMinor, useInsightsReport } from '@/hooks/use-insights'
 import { useAppStore } from '@/stores/app-store'
 
-const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Menu item'
 
 const splitConfig = {
   itemCost: { label: 'Item cost', color: 'var(--chart-2)' },
@@ -67,7 +65,7 @@ function CostSourceBadge({ source }: { source: ItemProfit['costSource'] }) {
   )
 }
 
-function HeroCard({ item, metric, totalProfit }: { item: ItemProfit; metric: RankMetric; totalProfit: number }) {
+function HeroCard({ item, metric, totalProfit, category }: { item: ItemProfit; metric: RankMetric; totalProfit: number; category: string }) {
   const metrics = [
     { label: 'Units sold', value: formatNumber(item.units) },
     { label: 'Income', value: formatCurrency(item.income) },
@@ -93,7 +91,7 @@ function HeroCard({ item, metric, totalProfit }: { item: ItemProfit; metric: Ran
             </div>
             <h2 className="truncate text-xl font-semibold tracking-tight">{item.name}</h2>
             <p className="text-sm text-muted-foreground">
-              {categoryName(item.categoryId)} · earned <span className="font-semibold text-success">{formatCurrency(item.profit)}</span> profit,{' '}
+              {category} · earned <span className="font-semibold text-success">{formatCurrency(item.profit)}</span> profit,{' '}
               {formatPercent(totalProfit > 0 ? (Math.max(0, item.profit) / totalProfit) * 100 : 0)} of all item profit
             </p>
           </div>
@@ -116,24 +114,36 @@ export default function ItemProfitPage() {
   const { t } = useT()
   const { data: orderData, isLoading: ordersLoading } = useOrders()
   const { products, unitCosts, isLoading: costsLoading } = useUnitCosts()
-  const { branchIds, days, inBranch, inRange } = useScope()
+  const { inBranch, preset } = useScope()
+  const { data: categories } = useCategories()
+  const categoryName = useMemo(() => {
+    const names = new Map((categories ?? []).map((c) => [c.id, c.name]))
+    return (id: string) => names.get(id) ?? 'Menu item'
+  }, [categories])
+  // Overhead is shared out from the server's sales and expense totals for the window.
+  const window = useMemo(() => presetWindow(preset), [preset])
+  const salesReport = useInsightsReport('sales', window)
+  const expensesReport = useInsightsReport('expenses', window)
+  const cur = salesReport.currency
   const [metric, setMetric] = useState<RankMetric>('profit')
   const [overrideRate, setOverrideRate] = useState<number | null>(null)
   const { data: taxRates } = useTaxRates()
   const includeTax = useAppStore((s) => s.includeTax)
 
   const profit = useMemo(() => {
-    const orders = inRange(inBranch(orderData ?? []), (o) => o.createdAt)
-    const pl = aggregateSales(branchIds, days)
+    const orders = inBranch(orderData ?? []).filter((o) => o.createdAt.slice(0, 10) >= window.from)
     return profitabilityWithOverhead(
       orders,
       products,
-      { revenue: pl.reduce((s, d) => s + d.revenue, 0), expenses: pl.reduce((s, d) => s + d.expenses, 0) },
+      {
+        revenue: sumMinor(salesReport.data?.rows, (r) => r.total_minor, cur),
+        expenses: sumMinor(expensesReport.data?.rows, (r) => r.total_minor, cur),
+      },
       overrideRate,
       unitCosts,
       { rates: taxRates ?? [], include: includeTax },
     )
-  }, [orderData, products, unitCosts, inBranch, inRange, branchIds, days, overrideRate, taxRates, includeTax])
+  }, [orderData, products, unitCosts, inBranch, window.from, salesReport.data, expensesReport.data, cur, overrideRate, taxRates, includeTax])
 
   const ranked = useMemo(() => rankItems(profit.items, metric), [profit.items, metric])
   const hero = ranked[0] ?? null
@@ -220,7 +230,7 @@ export default function ItemProfitPage() {
         ),
       },
     ],
-    [ranked, hero?.id],
+    [ranked, hero?.id, categoryName],
   )
 
   const chartItems = ranked.slice(0, 8).map((i) => ({ ...i, name: i.name.length > 20 ? `${i.name.slice(0, 19)}…` : i.name }))
@@ -258,7 +268,7 @@ export default function ItemProfitPage() {
         <div className="flex flex-col gap-4">
           {hero ? (
             <div className="grid gap-4 lg:grid-cols-3">
-              <HeroCard item={hero} metric={metric} totalProfit={totalProfit} />
+              <HeroCard item={hero} metric={metric} totalProfit={totalProfit} category={categoryName(hero.categoryId)} />
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">{t('expenses.standouts')}</CardTitle>

@@ -16,13 +16,12 @@ import { PageHeader } from '@/components/common/page-header'
 import { StatCard } from '@/components/common/stat-card'
 import { RecipeEditor, type RecipeDraft } from '@/components/costing/recipe-editor'
 import { useAccess } from '@/hooks/use-access'
-import { useProducts, useRecipes } from '@/hooks/use-data'
+import { useCategories, useProducts, useRecipes } from '@/hooks/use-data'
 import { useUnitCosts } from '@/hooks/use-unit-costs'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { recipeCost, suggestedPrice, type CostSource } from '@/lib/utils/costing'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format'
-import { categories } from '@/mocks/menu'
 import { useCostingStore } from '@/stores/costing-store'
 import type { Product } from '@/types'
 
@@ -42,13 +41,13 @@ interface CostRow {
 
 type Filter = 'all' | 'costed' | 'estimate' | 'over'
 
-const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Menu item'
-
 export default function CostingPage() {
   const { t } = useT()
   const { can } = useAccess()
   const { products, recipes, catalog, unitCosts, isLoading } = useUnitCosts()
   const { update: updateProduct } = useProducts()
+  const { data: categories } = useCategories()
+  const categoryName = (id: string) => categories?.find((c) => c.id === id)?.name ?? 'Menu item'
   const { create: createRecipe, update: updateRecipe, remove: removeRecipe } = useRecipes()
   const targetCostPct = useCostingStore((s) => s.targetCostPct)
   const setTargetCostPct = useCostingStore((s) => s.setTargetCostPct)
@@ -74,7 +73,8 @@ export default function CostingPage() {
           suggested: suggestedPrice(unit.cost, targetCostPct),
         }
       }),
-    [products, unitCosts, targetCostPct],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [products, unitCosts, targetCostPct, categories],
   )
 
   const visible = useMemo(

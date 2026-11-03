@@ -18,7 +18,7 @@ import { useEmployees } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate, initials, titleCase } from '@/lib/utils/format'
-import { branchName, currentTenantBranches } from '@/mocks/branches'
+import { branchName, currentTenantBranches } from '@/lib/directory'
 import type { Employee, EmployeeRole } from '@/types'
 
 const employeeRoles: EmployeeRole[] = ['admin', 'manager', 'cashier', 'waiter', 'chef', 'kitchen-staff', 'rider', 'accountant']

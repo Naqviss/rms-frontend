@@ -4,43 +4,39 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { config } from '@/lib/config'
-import { appUsers } from '@/mocks/platform'
+import { currentBranchIds } from '@/lib/directory'
 import { useAppStore } from '@/stores/app-store'
 import { useRecipeVault } from '@/stores/recipe-vault-store'
-import type { RoleId } from '@/types'
+import { signInWithAccessToken, signInWithPassword, signOut } from '@/services/api/auth'
+import { bootstrapSession, clearSession, useSession } from '@/services/api/session'
+import { homeFor, roleIdOf } from '@/services/api/permissions'
+import { colorFor, stamp } from '@/services/api/mappers'
+import type { AppUser, RoleId } from '@/types'
 
-export interface DemoAccount {
+/** The signed-in identity as the shell sees it. */
+export interface Account {
+  /** The identity's email (or a placeholder for token sign-ins without one). */
   username: string
-  password: string
-  /** Staff member from the users list this account signs in as. */
   userId: string
   role: RoleId
   /** Screen the account lands on after signing in. */
   home: string
 }
 
-/** Prototype-only credentials. Replace with a real auth provider before going live. */
-export const demoAccounts: DemoAccount[] = [
-  { username: 'admin', password: 'admin', userId: 'u1', role: 'tenant-owner', home: '/dashboard' },
-  { username: 'kitchen', password: 'kitchen', userId: 'u8', role: 'chef', home: '/orders/kitchen' },
-  { username: 'waiter', password: 'waiter', userId: 'u10', role: 'waiter', home: '/orders/tables' },
-  { username: 'counter', password: 'counter', userId: 'u6', role: 'cashier', home: '/orders/pos' },
-]
-
-export function accountFor(username: string | null) {
-  return demoAccounts.find((a) => a.username === username) ?? null
-}
-
-/** The owner sees every branch and can preview other roles; staff accounts are locked to their role and branch. */
-export function isOwner(account: DemoAccount | null) {
-  return account?.role === 'tenant-owner'
-}
-
 interface AuthState {
   username: string | null
   signedInAt: string | null
-  login: (username: string, password: string) => DemoAccount | null
+  /** Sign in through Supabase Auth, then load the RMS session. Throws on failure. */
+  login: (email: string, password: string) => Promise<void>
+  /** Sign in with a pre-issued JWT (development only). */
+  loginWithToken: (token: string) => Promise<void>
   logout: () => void
+}
+
+async function finishLogin(email: string | null, set: (s: Partial<AuthState>) => void) {
+  set({ username: email ?? 'signed-in', signedInAt: new Date().toISOString() })
+  useAppStore.getState().setBranches([])
+  await bootstrapSession()
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -48,18 +44,18 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       username: null,
       signedInAt: null,
-      login: (username, password) => {
-        const account = accountFor(username.trim().toLowerCase())
-        if (!account || account.password !== password) return null
-        const user = appUsers.find((u) => u.id === account.userId)
-        const app = useAppStore.getState()
-        app.setRole(account.role)
-        app.setBranches(isOwner(account) ? [] : (user?.branchIds ?? []))
-        set({ username: account.username, signedInAt: new Date().toISOString() })
-        return account
+      login: async (email, password) => {
+        const session = await signInWithPassword(email.trim(), password)
+        await finishLogin(session.email ?? email.trim(), set)
+      },
+      loginWithToken: async (token) => {
+        const session = signInWithAccessToken(token)
+        await finishLogin(session.email, set)
       },
       logout: () => {
         useRecipeVault.getState().lock()
+        void signOut()
+        clearSession()
         set({ username: null, signedInAt: null })
       },
     }),
@@ -70,12 +66,32 @@ export const useAuthStore = create<AuthState>()(
   ),
 )
 
-/** The signed-in demo account and the staff member behind it. */
+/** Landing screen for the session's role (after GET /api/me/access has resolved). */
+export function homeScreen() {
+  return homeFor[roleIdOf(useSession.getState().access?.role_codes ?? [])]
+}
+
+/** The signed-in account, derived from GET /api/me + /api/me/access. */
 export function useAccount() {
   const username = useAuthStore((s) => s.username)
-  const account = accountFor(username)
-  const user = appUsers.find((u) => u.id === account?.userId) ?? appUsers[0]
-  return { account, user, owner: isOwner(account), home: account?.home ?? '/dashboard' }
+  const me = useSession((s) => s.me)
+  const access = useSession((s) => s.access)
+  const role = roleIdOf(access?.role_codes ?? [])
+  // Tenant-wide members get the cross-branch view; branch staff are locked to their branches.
+  const owner = Boolean(access?.all_branches)
+  const branchIds = access?.all_branches ? [...currentBranchIds] : (access?.branch_ids ?? [])
+  const account: Account | null = username ? { username, userId: me?.user_id ?? '', role, home: homeFor[role] } : null
+  const user: AppUser = {
+    id: me?.user_id ?? '',
+    name: me?.display_name || me?.email || username || '',
+    email: me?.email ?? username ?? '',
+    role,
+    branchIds,
+    status: 'active',
+    lastActive: stamp(new Date().toISOString()),
+    color: colorFor(me?.user_id ?? username ?? 'x'),
+  }
+  return { account, user, owner, home: account?.home ?? '/dashboard', isPlatformAdmin: Boolean(me?.is_platform_admin) }
 }
 
 /** True once the persisted session has been read from storage, so guards never redirect on the server render. */

@@ -21,7 +21,7 @@ import { useCategories, useMenuGroups, useProducts, useTaxRates } from '@/hooks/
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency } from '@/lib/utils/format'
 import { productPriceSplit, productTaxRate } from '@/lib/utils/tax'
-import { currentBranchIds } from '@/mocks/branches'
+import { currentBranchIds } from '@/lib/directory'
 import type { Product, TaxRate } from '@/types'
 
 const netMargin = (p: Product, rates: TaxRate[]) => {

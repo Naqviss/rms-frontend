@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo } from 'react'
 import { PRESET_DAYS, useAppStore } from '@/stores/app-store'
-import { currentBranchIds } from '@/mocks/branches'
+import { currentBranchIds } from '@/lib/directory'
 import { config } from '@/lib/config'
-import { isoDaysAgo } from '@/lib/utils/seed'
+import { isoDaysAgo } from '@/lib/utils/dates'
 
 /** Branch + date-range scope selected in the top bar, shared by every data page. */
 export function useScope() {

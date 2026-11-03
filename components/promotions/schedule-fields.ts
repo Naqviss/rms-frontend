@@ -2,7 +2,7 @@ import type { FieldDef, FormValues } from '@/components/common/form-dialog'
 import { config } from '@/lib/config'
 import { channels } from '@/lib/utils/channels'
 import { DAY_PRESETS, describeDays, presetFor } from '@/lib/utils/promotions'
-import { currentTenantBranches } from '@/mocks/branches'
+import { currentTenantBranches } from '@/lib/directory'
 import type { PromoSchedule, SalesChannel } from '@/types'
 
 type Translate = (key: string, fallback?: string) => string

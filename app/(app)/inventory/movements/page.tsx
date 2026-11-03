@@ -11,7 +11,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/lib/utils/format'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { MovementType, StockMovement } from '@/types'
 
 const types: MovementType[] = ['purchase', 'consumption', 'adjustment', 'transfer', 'wastage']

@@ -10,6 +10,7 @@ import {
   MapPinIcon,
   PackageCheckIcon,
   PhoneIcon,
+  SettingsIcon,
   TruckIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -31,7 +32,8 @@ import { useT } from '@/lib/i18n/use-t'
 import { channelOf, deliveryChannels, isRejected } from '@/lib/utils/channels'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatTime } from '@/lib/utils/format'
-import { useChannelStore } from '@/stores/channel-store'
+import { useCreateDeliveryTask, useDeliveryConfig, useDeliverySummary } from '@/hooks/use-front-of-house'
+import { Spinner } from '@/components/ui/spinner'
 import type { DeliveryStatus, Order, SalesChannel } from '@/types'
 
 const columns: { status: DeliveryStatus; title: string; icon: LucideIcon; tone: string }[] = [
@@ -41,7 +43,10 @@ const columns: { status: DeliveryStatus; title: string; icon: LucideIcon; tone: 
   { status: 'delivered', title: 'Delivered', icon: CheckCircle2Icon, tone: 'bg-success/15 text-success' },
 ]
 
-/** Foodpanda orders have no dispatch of their own; their stage follows the order status and Foodpanda's rider. */
+/** A delivery order whose delivery task has not been created yet. */
+const needsTask = (o: Order) => !o.delivery && !o.foodpanda && (o.type === 'delivery' || o.website?.fulfillment === 'delivery')
+
+/** Foodpanda orders have no dispatch of their own; their stage follows the order status. */
 function stageOf(o: Order): DeliveryStatus {
   if (o.delivery) return o.delivery.status
   if (o.status === 'completed') return 'delivered'
@@ -51,17 +56,24 @@ function stageOf(o: Order): DeliveryStatus {
 
 export default function DeliveryBoardPage() {
   const { t } = useT()
-  const enabled = useChannelStore((s) => s.deliveryEnabled)
-  const setEnabled = useChannelStore((s) => s.setDeliveryEnabled)
-  const { data, isLoading, update } = useOrders()
-  const { data: riders, update: updateRiderRaw } = useRiders()
+  const { data, isLoading, update, mutate } = useOrders()
+  const { data: riders } = useRiders()
   const { inBranch, inRange } = useScope()
+  const config = useDeliveryConfig()
+  const summary = useDeliverySummary()
+  const taskCreator = useCreateDeliveryTask(() => mutate())
+  const [busyId, setBusyId] = useState<string | null>(null)
+  // Delivery is on when any branch in view has it enabled (server settings).
+  const enabled = !config.data || config.data.some((b) => b.settings.enabled)
+  const zonesOf = (branchId: string) => config.data?.find((b) => b.branchId === branchId)?.zones.filter((z) => z.is_active) ?? []
   const [shown, setShown] = useState<SalesChannel[]>(deliveryChannels)
 
   const all = useMemo(
     () =>
       inRange(
-        inBranch(data ?? []).filter((o) => deliveryChannels.includes(channelOf(o)) && (o.delivery || o.foodpanda) && o.status !== 'cancelled' && !isRejected(o)),
+        inBranch(data ?? []).filter(
+          (o) => deliveryChannels.includes(channelOf(o)) && (o.delivery || o.foodpanda || needsTask(o)) && o.status !== 'cancelled' && !isRejected(o),
+        ),
         (o) => o.createdAt,
       ).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [data, inBranch, inRange],
@@ -81,24 +93,27 @@ export default function DeliveryBoardPage() {
     return {
       waiting: deliveries.filter((o) => stageOf(o) === 'unassigned').length,
       active: deliveries.filter((o) => ['assigned', 'picked-up'].includes(stageOf(o))).length,
-      avgTime: times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
-      fees: done.reduce((s, o) => s + (o.delivery?.fee ?? 0), 0),
+      // Server figures (GET /api/delivery/summary) when available, else from the tasks in view.
+      avgTime: summary?.avgMinutes ?? (times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0),
+      fees: summary?.fees ?? done.reduce((s, o) => s + (o.delivery?.fee ?? 0), 0),
     }
-  }, [deliveries])
+  }, [deliveries, summary])
 
-  const updateRider = (id: string, status: 'available' | 'on-delivery') => updateRiderRaw(id, { status })
-
+  /** Assign / pick up / deliver / fail: version-checked task writes through the orders adapter. */
   const advance = async (o: Order, status: DeliveryStatus, extra?: { riderId: string; riderName: string }) => {
-    if (!o.delivery) return
+    if (!o.delivery || busyId) return
     const delivery = { ...o.delivery, status, ...(extra ?? {}) }
-    const orderStatus = status === 'delivered' ? 'completed' : status === 'picked-up' ? 'out-for-delivery' : o.status
-    await update(o.id, { delivery, status: orderStatus })
-    if (extra) {
-      const rider = riders?.find((r) => r.id === extra.riderId)
-      if (rider) await updateRider(rider.id, 'on-delivery')
+    const orderStatus = status === 'delivered' ? 'completed' : o.status
+    setBusyId(o.id)
+    try {
+      await update(o.id, { delivery, status: orderStatus })
+      toast.success(t('common.updated'))
+    } catch {
+      // reported by useResource
+    } finally {
+      setBusyId(null)
+      void mutate()
     }
-    if (status === 'delivered' && o.delivery.riderId) await updateRider(o.delivery.riderId, 'available')
-    toast.success(t('common.updated'))
   }
 
   if (!enabled) {
@@ -113,9 +128,9 @@ export default function DeliveryBoardPage() {
             <EmptyTitle>Own delivery is turned off</EmptyTitle>
             <EmptyDescription>Turn it on to dispatch riders for your own and website orders.</EmptyDescription>
           </EmptyHeader>
-          <Button onClick={() => setEnabled(true)}>
-            <TruckIcon data-icon="inline-start" />
-            Enable delivery
+          <Button render={<Link href="/delivery/settings" />} nativeButton={false}>
+            <SettingsIcon data-icon="inline-start" />
+            Delivery settings
           </Button>
         </Empty>
       </>
@@ -129,6 +144,10 @@ export default function DeliveryBoardPage() {
         actions={
           <>
             <ChannelSettings />
+            <Button variant="outline" render={<Link href="/delivery/settings" />} nativeButton={false}>
+              <SettingsIcon data-icon="inline-start" />
+              Zones & settings
+            </Button>
             <Button variant="outline" render={<Link href="/delivery/riders" />} nativeButton={false}>
               <BikeIcon data-icon="inline-start" />
               {t('nav.riders')}
@@ -186,6 +205,9 @@ export default function DeliveryBoardPage() {
                       if (rider) advance(o, 'assigned', { riderId, riderName: rider.name })
                     }}
                     onAdvance={(s) => advance(o, s)}
+                    busy={busyId === o.id || taskCreator.busyId === o.id}
+                    zones={needsTask(o) ? zonesOf(o.branchId).map((z) => ({ value: z.id, label: `${z.name} · ${formatCurrency(z.fee_minor / 100)}` })) : []}
+                    onCreateTask={needsTask(o) ? (zoneId) => taskCreator.create(o, zoneId) : undefined}
                   />
                 ))}
               </section>
@@ -203,13 +225,20 @@ function DeliveryCard({
   riderOptions,
   onAssign,
   onAdvance,
+  busy,
+  zones,
+  onCreateTask,
 }: {
   order: Order
   stage: DeliveryStatus
   riderOptions: { value: string; label: string }[]
   onAssign: (riderId: string) => void
   onAdvance: (s: DeliveryStatus) => void
+  busy: boolean
+  zones: { value: string; label: string }[]
+  onCreateTask?: (zoneId?: string) => void
 }) {
+  const [zoneId, setZoneId] = useState('auto')
   const d = order.delivery
   const channel = channelOf(order)
   const riderName = d?.riderName ?? order.foodpanda?.riderName ?? null
@@ -229,21 +258,25 @@ function DeliveryCard({
                 <MapPinIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 <span className="text-pretty">{d.address}</span>
               </p>
-              <p className="mt-1 flex items-center gap-1.5 text-muted-foreground">
-                <PhoneIcon className="size-3.5 shrink-0" aria-hidden />
-                {d.phone}
-              </p>
+              {d.phone && (
+                <p className="mt-1 flex items-center gap-1.5 text-muted-foreground">
+                  <PhoneIcon className="size-3.5 shrink-0" aria-hidden />
+                  {d.phone}
+                </p>
+              )}
             </>
           )}
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           {d ? (
             <>
-              <span>{d.distanceKm.toFixed(1)} km</span>
+              <span>{d.distanceKm > 0 ? `${d.distanceKm.toFixed(1)} km` : d.etaMinutes > 0 ? `~${d.etaMinutes} min` : d.area}</span>
               <span>{formatCurrency(d.fee)}</span>
             </>
-          ) : (
+          ) : order.foodpanda ? (
             <span className={cn('font-medium', channelMeta.foodpanda.text)}>Foodpanda rider</span>
+          ) : (
+            <span>No delivery task yet</span>
           )}
           <span className="font-medium text-foreground tabular-nums">{formatCurrency(order.total)}</span>
         </div>
@@ -254,22 +287,43 @@ function DeliveryCard({
             {stage === 'delivered' && d?.durationMinutes ? ` · ${d.durationMinutes} min` : ''}
           </p>
         )}
+        {onCreateTask && (
+          <div className="flex flex-col gap-2">
+            {zones.length > 0 && (
+              <OptionSelect
+                value={zoneId}
+                onValueChange={setZoneId}
+                aria-label="Delivery zone"
+                options={[{ value: 'auto', label: 'Zone: match the address' }, ...zones]}
+              />
+            )}
+            <Button size="sm" disabled={busy} onClick={() => onCreateTask(zoneId === 'auto' ? undefined : zoneId)}>
+              {busy ? <Spinner data-icon="inline-start" /> : <PackageCheckIcon data-icon="inline-start" />}
+              Create delivery
+            </Button>
+          </div>
+        )}
         {d && stage === 'unassigned' &&
           (riderOptions.length ? (
-            <OptionSelect value="" onValueChange={onAssign} options={riderOptions} placeholder="Assign rider" aria-label="Assign rider" />
+            <OptionSelect value="" disabled={busy} onValueChange={onAssign} options={riderOptions} placeholder="Assign rider" aria-label="Assign rider" />
           ) : (
             <p className="text-xs text-muted-foreground">No riders available at this branch.</p>
           ))}
         {d && stage === 'assigned' && (
-          <Button size="sm" onClick={() => onAdvance('picked-up')}>
+          <Button size="sm" disabled={busy} onClick={() => onAdvance('picked-up')}>
             <TruckIcon data-icon="inline-start" />
             Picked up
           </Button>
         )}
         {d && stage === 'picked-up' && (
-          <Button size="sm" onClick={() => onAdvance('delivered')}>
+          <Button size="sm" disabled={busy} onClick={() => onAdvance('delivered')}>
             <CheckCircle2Icon data-icon="inline-start" />
             Delivered
+          </Button>
+        )}
+        {d && (stage === 'assigned' || stage === 'picked-up') && (
+          <Button size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => onAdvance('failed')}>
+            Mark failed
           </Button>
         )}
       </CardContent>

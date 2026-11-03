@@ -13,9 +13,10 @@ import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useBranches, useEmployees } from '@/hooks/use-data'
-import { currentTenantBranches } from '@/mocks/branches'
+import { currentTenantBranches, directory } from '@/lib/directory'
 import { useT } from '@/lib/i18n/use-t'
 import type { Branch } from '@/types'
+
 
 export default function BranchesPage() {
   const { t } = useT()
@@ -24,7 +25,7 @@ export default function BranchesPage() {
   const [editing, setEditing] = useState<Branch | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Branch | null>(null)
 
-  const branches = (data ?? []).filter((b) => currentTenantBranches.some((c) => c.tenantId === b.tenantId))
+  const branches = data ?? []
 
   const initial: FormValues =
     editing && editing !== 'new'
@@ -33,14 +34,9 @@ export default function BranchesPage() {
           city: editing.city,
           address: editing.address,
           phone: editing.phone,
-          email: editing.email,
-          manager: editing.manager,
-          opensAt: editing.opensAt,
-          closesAt: editing.closesAt,
-          seats: editing.seats,
           status: editing.status,
         }
-      : { name: '', city: 'Lahore', address: '', phone: '', email: '', manager: '', opensAt: '10:00', closesAt: '23:00', seats: 40, status: 'open' }
+      : { name: '', city: '', address: '', phone: '', status: 'open' }
 
   const save = async (v: FormValues) => {
     const patch = {
@@ -48,18 +44,14 @@ export default function BranchesPage() {
       city: String(v.city),
       address: String(v.address),
       phone: String(v.phone),
-      email: String(v.email),
-      manager: String(v.manager),
-      opensAt: String(v.opensAt),
-      closesAt: String(v.closesAt),
-      seats: Number(v.seats),
       status: String(v.status) as Branch['status'],
     }
     if (editing && editing !== 'new') {
       await update(editing.id, patch)
       toast.success(t('common.updated'))
     } else {
-      await create({ ...patch, tenantId: currentTenantBranches[0].tenantId })
+      // email, manager, hours and seats have no backend field.
+      await create({ ...patch, tenantId: currentTenantBranches[0]?.tenantId ?? directory.tenantId, email: '', manager: '', opensAt: '', closesAt: '', seats: 0 })
       toast.success(t('common.created'))
     }
   }
@@ -115,24 +107,28 @@ export default function BranchesPage() {
                 <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
                   <p className="flex items-start gap-2">
                     <MapPinIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                    {b.address}, {b.city}
+                    {[b.address, b.city].filter(Boolean).join(', ')}
                   </p>
                   <p className="flex items-center gap-2">
                     <PhoneIcon className="size-4 shrink-0" aria-hidden />
                     {b.phone}
                   </p>
-                  <p className="flex items-center gap-2">
-                    <ClockIcon className="size-4 shrink-0" aria-hidden />
-                    {b.opensAt} - {b.closesAt}
-                  </p>
+                  {b.opensAt && (
+                    <p className="flex items-center gap-2">
+                      <ClockIcon className="size-4 shrink-0" aria-hidden />
+                      {b.opensAt} - {b.closesAt}
+                    </p>
+                  )}
                   <div className="mt-2 flex gap-2">
                     <Badge variant="secondary">
                       <UsersIcon data-icon="inline-start" />
                       {staff} {t('nav.employees').toLowerCase()}
                     </Badge>
-                    <Badge variant="outline">
-                      {b.seats} {t('branches.seats')}
-                    </Badge>
+                    {b.seats > 0 && (
+                      <Badge variant="outline">
+                        {b.seats} {t('branches.seats')}
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -144,16 +140,12 @@ export default function BranchesPage() {
         open={editing !== null}
         onOpenChange={(o) => !o && setEditing(null)}
         title={editing === 'new' ? t('branches.add') : t('common.edit')}
+        // Only fields the RMS API stores (no e-mail, manager, hours or seats on a branch).
         fields={[
           { name: 'name', label: t('common.name'), required: true, wide: true },
           { name: 'city', label: t('customers.city'), required: true },
-          { name: 'manager', label: t('branches.manager') },
           { name: 'address', label: t('common.address'), wide: true },
           { name: 'phone', label: t('common.phone'), type: 'tel' },
-          { name: 'email', label: t('common.email'), type: 'email' },
-          { name: 'opensAt', label: t('branches.opensAt'), type: 'time' },
-          { name: 'closesAt', label: t('branches.closesAt'), type: 'time' },
-          { name: 'seats', label: t('branches.seats'), type: 'number' },
           {
             name: 'status',
             label: t('common.status'),

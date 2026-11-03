@@ -3,18 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import {
-  AlertCircleIcon,
-  ChefHatIcon,
-  ConciergeBellIcon,
-  EyeIcon,
-  EyeOffIcon,
-  LockIcon,
-  ReceiptIcon,
-  ShieldCheckIcon,
-  UserIcon,
-  UtensilsCrossedIcon,
-} from 'lucide-react'
+import { AlertCircleIcon, EyeIcon, EyeOffIcon, LockIcon, UserIcon, UtensilsCrossedIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -23,20 +12,13 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '
 import { Spinner } from '@/components/ui/spinner'
 import { LanguageToggle } from '@/components/shell/topbar-widgets'
 import { useT } from '@/lib/i18n/use-t'
-import { cn } from '@/lib/utils'
-import { accountFor, demoAccounts, useAuthHydrated, useAuthStore } from '@/stores/auth-store'
-import type { TranslationKey } from '@/lib/i18n/dictionary'
+import { homeScreen, useAccount, useAuthHydrated, useAuthStore } from '@/stores/auth-store'
+import { hasSession, supabaseConfigured } from '@/services/api/auth'
+import { useSession } from '@/services/api/session'
 
 /** Only allow in-app paths so `?next=` cannot bounce the user to another site. */
 function safeNext(value: string | null) {
   return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/login') ? value : null
-}
-
-const accountMeta: Record<string, { label: TranslationKey; icon: typeof UserIcon }> = {
-  admin: { label: 'auth.account.owner', icon: ShieldCheckIcon },
-  kitchen: { label: 'auth.account.kitchen', icon: ChefHatIcon },
-  waiter: { label: 'auth.account.waiter', icon: ConciergeBellIcon },
-  counter: { label: 'auth.account.counter', icon: ReceiptIcon },
 }
 
 function LoginForm() {
@@ -44,12 +26,16 @@ function LoginForm() {
   const router = useRouter()
   const next = safeNext(useSearchParams().get('next'))
   const hydrated = useAuthHydrated()
-  const signedInAs = useAuthStore((s) => accountFor(s.username))
+  const { account } = useAccount()
+  const sessionReady = useSession((s) => s.status !== 'idle' && s.status !== 'loading')
+  const signedInAs = account && hasSession() && sessionReady ? account : null
   const login = useAuthStore((s) => s.login)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState(false)
+  const loginWithToken = useAuthStore((s) => s.loginWithToken)
+  const [tokenMode, setTokenMode] = useState(!supabaseConfigured())
+  const [email, setEmail] = useState('')
+  const [secret, setSecret] = useState('')
+  const [showSecret, setShowSecret] = useState(false)
+  const [errorText, setErrorText] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Without an explicit `?next=`, every account lands on its own screen.
@@ -60,115 +46,102 @@ function LoginForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
-    setError(false)
-    // Small pause so the button state is visible, like a real network round trip.
-    await new Promise((r) => setTimeout(r, 350))
-    const account = login(username, password)
-    if (account) {
+    setErrorText(null)
+    try {
+      if (tokenMode) await loginWithToken(secret)
+      else await login(email, secret)
       toast.success(t('auth.signedIn'))
-      router.replace(next ?? account.home)
-    } else {
-      setError(true)
+      // The guard on the destination explains workspace problems (no membership, etc.).
+      router.replace(next ?? homeScreen())
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : String(err))
       setSubmitting(false)
     }
   }
 
+  const invalid = errorText ? true : undefined
+
   return (
     <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
-      {error && (
+      {errorText && (
         <Alert variant="destructive">
           <AlertCircleIcon />
-          <AlertDescription>{t('auth.invalid')}</AlertDescription>
+          <AlertDescription>{errorText}</AlertDescription>
         </Alert>
       )}
       <FieldGroup>
-        <Field data-invalid={error || undefined}>
-          <FieldLabel htmlFor="username">{t('auth.username')}</FieldLabel>
-          <InputGroup>
-            <InputGroupAddon>
-              <UserIcon aria-hidden />
-            </InputGroupAddon>
-            <InputGroupInput
-              id="username"
-              name="username"
-              autoComplete="username"
-              autoFocus
-              required
-              value={username}
-              aria-invalid={error || undefined}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </InputGroup>
-        </Field>
-        <Field data-invalid={error || undefined}>
-          <FieldLabel htmlFor="password">{t('auth.password')}</FieldLabel>
+        {!tokenMode && (
+          <Field data-invalid={invalid}>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon>
+                <UserIcon aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                autoFocus
+                required
+                value={email}
+                aria-invalid={invalid}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </InputGroup>
+          </Field>
+        )}
+        <Field data-invalid={invalid}>
+          <FieldLabel htmlFor="secret">{tokenMode ? 'Access token (JWT)' : t('auth.password')}</FieldLabel>
           <InputGroup>
             <InputGroupAddon>
               <LockIcon aria-hidden />
             </InputGroupAddon>
             <InputGroupInput
-              id="password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
+              id="secret"
+              name={tokenMode ? 'token' : 'password'}
+              type={showSecret ? 'text' : 'password'}
+              autoComplete={tokenMode ? 'off' : 'current-password'}
+              autoFocus={tokenMode}
               required
-              value={password}
-              aria-invalid={error || undefined}
-              onChange={(e) => setPassword(e.target.value)}
+              value={secret}
+              aria-invalid={invalid}
+              onChange={(e) => setSecret(e.target.value)}
             />
             <InputGroupAddon align="inline-end">
               <InputGroupButton
                 size="icon-xs"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                aria-pressed={showPassword}
+                onClick={() => setShowSecret((v) => !v)}
+                aria-label={showSecret ? t('auth.hidePassword') : t('auth.showPassword')}
+                aria-pressed={showSecret}
               >
-                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                {showSecret ? <EyeOffIcon /> : <EyeIcon />}
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
         </Field>
       </FieldGroup>
-      <Button type="submit" size="lg" disabled={submitting || !username || !password}>
+      <Button type="submit" size="lg" disabled={submitting || (!tokenMode && !email) || !secret}>
         {submitting && <Spinner data-icon="inline-start" />}
         {t('auth.signIn')}
       </Button>
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium text-muted-foreground">{t('auth.demoAccounts')}</p>
-        <div className="grid grid-cols-2 gap-2">
-          {demoAccounts.map((a) => {
-            const meta = accountMeta[a.username]
-            const Icon = meta.icon
-            const selected = username === a.username
-            return (
-              <button
-                key={a.username}
-                type="button"
-                onClick={() => {
-                  setUsername(a.username)
-                  setPassword(a.password)
-                  setError(false)
-                }}
-                aria-pressed={selected}
-                className={cn(
-                  'flex items-center gap-2.5 rounded-lg border border-dashed bg-muted/40 p-2.5 text-start text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                  selected && 'border-solid border-primary bg-primary/5',
-                )}
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-medium">{t(meta.label)}</span>
-                  <span className="block truncate font-mono text-xs text-muted-foreground">
-                    {a.username} / {a.password}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {supabaseConfigured() ? (
+        <button
+          type="button"
+          className="text-center text-xs text-muted-foreground underline-offset-4 hover:underline"
+          onClick={() => {
+            setTokenMode((v) => !v)
+            setSecret('')
+            setErrorText(null)
+          }}
+        >
+          {tokenMode ? 'Sign in with email and password instead' : 'Developer: sign in with an access token'}
+        </button>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground">
+          Email sign-in needs NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.
+        </p>
+      )}
     </form>
   )
 }

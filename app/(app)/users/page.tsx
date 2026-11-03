@@ -18,8 +18,10 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useAppUsers, useRoles } from '@/hooks/use-data'
 import { useT } from '@/lib/i18n/use-t'
-import { formatRelative, initials } from '@/lib/utils/format'
-import { currentBranchIds } from '@/mocks/branches'
+import { formatDateTime, formatRelative, initials } from '@/lib/utils/format'
+import { branchName, currentBranchIds } from '@/lib/directory'
+import { useAuditLogs } from '@/hooks/use-platform'
+import type { AuditLogResponseDto } from '@/services/api/generated/schemas'
 import type { AppUser, PermissionAction, PermissionModule, Role, RoleId } from '@/types'
 
 const modules: PermissionModule[] = ['dashboard', 'orders', 'delivery', 'website', 'inventory', 'menu', 'recipes', 'finance', 'reports', 'employees', 'customers', 'settings']
@@ -28,21 +30,13 @@ const actions: PermissionAction[] = ['view', 'create', 'edit', 'delete']
 export default function UsersPage() {
   const { t } = useT()
   const { data: users, isLoading, create, update, remove, removeMany } = useAppUsers()
-  const { data: roles, update: updateRole } = useRoles()
+  const { data: roles } = useRoles()
   const [editing, setEditing] = useState<AppUser | 'new' | null>(null)
   const [deleting, setDeleting] = useState<AppUser | null>(null)
   const [roleId, setRoleId] = useState<string>('')
 
   const roleName = (id: string) => roles?.find((r) => r.id === id)?.name ?? id
   const activeRole: Role | undefined = roles?.find((r) => r.id === (roleId || roles?.[0]?.id))
-
-  const toggle = async (m: PermissionModule, a: PermissionAction, checked: boolean) => {
-    if (!activeRole) return
-    const current = activeRole.permissions[m] ?? []
-    const next = checked ? [...new Set([...current, a])] : current.filter((x) => x !== a)
-    await updateRole(activeRole.id, { permissions: { ...activeRole.permissions, [m]: next } })
-    toast.success(t('common.saved'))
-  }
 
   const columns = useMemo<ColumnDef<AppUser, unknown>[]>(
     () => [
@@ -64,7 +58,7 @@ export default function UsersPage() {
         ),
       },
       { id: 'role', header: t('common.role'), accessorFn: (r) => roleName(r.role) },
-      { accessorKey: 'lastActive', header: t('users.lastActive'), cell: ({ row }) => formatRelative(row.original.lastActive) },
+      { accessorKey: 'lastActive', header: t('users.lastActive'), cell: ({ row }) => (row.original.lastActive ? formatRelative(row.original.lastActive) : '—') },
       { accessorKey: 'status', header: t('common.status'), cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       {
         id: 'actions',
@@ -95,7 +89,7 @@ export default function UsersPage() {
   const initial: FormValues =
     editing && editing !== 'new'
       ? { name: editing.name, email: editing.email, role: editing.role, status: editing.status }
-      : { name: '', email: '', role: 'cashier', status: 'invited' }
+      : { name: '', email: '', role: roles?.[0]?.id ?? '', status: 'invited' }
 
   const save = async (v: FormValues) => {
     const patch = { name: String(v.name), email: String(v.email), role: String(v.role) as RoleId, status: String(v.status) as AppUser['status'] }
@@ -103,7 +97,7 @@ export default function UsersPage() {
       await update(editing.id, patch)
       toast.success(t('common.updated'))
     } else {
-      await create({ ...patch, branchIds: currentBranchIds, lastActive: new Date().toISOString().slice(0, 19), color: 'oklch(0.55 0.12 40)' })
+      await create({ ...patch, branchIds: currentBranchIds, lastActive: '', color: '' })
       toast.success(t('users.invited'))
     }
   }
@@ -124,6 +118,7 @@ export default function UsersPage() {
         <TabsList>
           <TabsTrigger value="users">{t('nav.users')}</TabsTrigger>
           <TabsTrigger value="roles">{t('users.roles')}</TabsTrigger>
+          <TabsTrigger value="audit">{t('users.activity')}</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-4">
           <DataTable columns={columns} data={users} isLoading={isLoading} exportName="users" onBulkDelete={(sel) => removeMany(sel.map((s) => s.id))} />
@@ -170,7 +165,7 @@ export default function UsersPage() {
                               const on = activeRole.permissions[m]?.includes(a) ?? false
                               return (
                                 <td key={a} className="py-2.5 text-center">
-                                  <Checkbox checked={on} onCheckedChange={(c) => toggle(m, a, c === true)} aria-label={`${m} ${a}`} />
+                                  <Checkbox checked={on} disabled aria-label={`${m} ${a}`} />
                                 </td>
                               )
                             })}
@@ -180,7 +175,7 @@ export default function UsersPage() {
                     </table>
                     <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                       <CheckIcon className="size-3" aria-hidden />
-                      {t('users.permissionHint')}
+                      Role permissions are defined by the platform and cannot be edited here.
                       <MinusIcon className="hidden" aria-hidden />
                     </p>
                   </CardContent>
@@ -188,6 +183,9 @@ export default function UsersPage() {
               )}
             </div>
           )}
+        </TabsContent>
+        <TabsContent value="audit" className="mt-4">
+          <AuditLog users={users} />
         </TabsContent>
       </Tabs>
       <FormDialog
@@ -225,4 +223,27 @@ export default function UsersPage() {
       />
     </>
   )
+}
+
+/** Live only: GET /api/audit-logs (newest first, latest 100). */
+function AuditLog({ users }: { users: AppUser[] | undefined }) {
+  const { t } = useT()
+  const { data, isLoading } = useAuditLogs()
+  const actor = (r: AuditLogResponseDto) => users?.find((u) => u.id === r.actor_id)?.name ?? `${r.actor_type} ${r.actor_id.slice(0, 8)}`
+  const columns = useMemo<ColumnDef<AuditLogResponseDto, unknown>[]>(
+    () => [
+      { accessorKey: 'occurred_at', header: t('common.date'), cell: ({ row }) => formatDateTime(row.original.occurred_at.slice(0, 19)) },
+      { id: 'actor', header: t('common.name'), accessorFn: (r) => actor(r) },
+      { accessorKey: 'action', header: t('sync.action'), cell: ({ row }) => <span className="font-mono text-xs">{row.original.action}</span> },
+      {
+        id: 'resource',
+        header: t('sync.entity'),
+        accessorFn: (r) => [r.resource_type, r.resource_id?.slice(0, 8)].filter(Boolean).join(' · '),
+      },
+      { id: 'branch', header: t('common.branch'), accessorFn: (r) => (r.branch_id ? branchName(r.branch_id) : '—') },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, users],
+  )
+  return <DataTable columns={columns} data={data} isLoading={isLoading} exportName="audit-log" />
 }

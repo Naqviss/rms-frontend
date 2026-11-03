@@ -33,7 +33,8 @@ export default function VendorsPage() {
 
   const fields: FieldDef[] = [
     { name: 'name', label: t('common.name'), required: true, wide: true },
-    { name: 'category', label: t('common.category'), required: true },
+    // The RMS API stores no vendor category, so it is optional.
+    { name: 'category', label: t('common.category') },
     { name: 'contactPerson', label: t('vendors.contact'), required: true },
     { name: 'phone', label: t('common.phone'), type: 'tel', required: true },
     { name: 'email', label: t('common.email'), type: 'email' },

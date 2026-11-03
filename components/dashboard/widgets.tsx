@@ -48,7 +48,7 @@ import {
   titleCase,
 } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import { OptionSelect } from '@/components/common/option-select'
 import { metricValue, rankItems, RANK_METRICS, type RankMetric } from '@/lib/utils/profitability'
 import { useDashboardStore, type WidgetSize } from '@/stores/dashboard-store'
@@ -78,15 +78,20 @@ function ListRow({ children }: { children: React.ReactNode }) {
 
 /* KPI widgets */
 
+/** Value shown when the server section did not load (no permission / failed), unlike a real zero. */
+const NA = '—'
+const NA_HINT = 'Not available'
+
 function SalesKpi({ data, title }: WidgetProps) {
   const { t } = useT()
   return (
     <StatCard
       label={title}
-      value={formatCurrency(data.series.at(-1)?.revenue ?? 0)}
+      value={data.available.trend ? formatCurrency(data.series.at(-1)?.revenue ?? 0) : NA}
       icon={BanknoteIcon}
+      hint={data.available.trend ? undefined : NA_HINT}
       delta={
-        data.series.length > 1
+        data.available.trend && data.series.length > 1
           ? (((data.series.at(-1)?.revenue ?? 0) - (data.series.at(-2)?.revenue ?? 1)) / (data.series.at(-2)?.revenue ?? 1)) * 100
           : undefined
       }
@@ -99,33 +104,39 @@ function SalesKpi({ data, title }: WidgetProps) {
 function OrdersKpi({ data, title }: WidgetProps) {
   const { t } = useT()
   return (
-    <StatCard label={title} value={formatNumber(data.totals.orders)} icon={ShoppingBagIcon} delta={data.deltas.orders} deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
+    <StatCard label={title} value={data.available.sales ? formatNumber(data.totals.orders) : NA} hint={data.available.sales ? undefined : NA_HINT} icon={ShoppingBagIcon} delta={data.available.sales ? data.deltas.orders : undefined} deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
   )
 }
 
 function AovKpi({ data, title }: WidgetProps) {
   const { t } = useT()
   return (
-    <StatCard label={title} value={formatCurrency(data.aov)} icon={ReceiptIcon} delta={data.deltas.aov} deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
+    <StatCard label={title} value={data.available.sales ? formatCurrency(data.aov) : NA} hint={data.available.sales ? undefined : NA_HINT} icon={ReceiptIcon} delta={data.available.sales ? data.deltas.aov : undefined} deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
   )
 }
 
 function ProfitKpi({ data, title }: WidgetProps) {
   const { t } = useT()
   return (
-    <StatCard label={title} value={formatCompactCurrency(data.totals.profit)} icon={TrendingUpIcon} delta={data.deltas.profit} deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
+    <StatCard
+      label={title}
+      value={data.available.sales && data.available.expenses ? formatCompactCurrency(data.totals.profit) : NA}
+      hint={data.available.sales && data.available.expenses ? 'Sales minus recorded expenses' : NA_HINT}
+      icon={TrendingUpIcon}
+      delta={data.available.sales && data.available.expenses ? data.deltas.profit : undefined}
+      deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
   )
 }
 
 function ExpensesKpi({ data, title }: WidgetProps) {
   const { t } = useT()
   return (
-    <StatCard label={title} value={formatCompactCurrency(data.totals.expenses)} icon={WalletIcon} delta={data.deltas.expenses} invertDelta deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
+    <StatCard label={title} value={data.available.expenses ? formatCompactCurrency(data.totals.expenses) : NA} hint={data.available.expenses ? undefined : NA_HINT} icon={WalletIcon} delta={data.available.expenses ? data.deltas.expenses : undefined} invertDelta deltaLabel={t('dashboard.vsPrevious')} className="h-full" />
   )
 }
 
 function PendingKpi({ data, title }: WidgetProps) {
-  return <StatCard label={title} value={formatNumber(data.pending)} icon={ClockIcon} hint="Awaiting kitchen or confirmation" className="h-full" />
+  return <StatCard label={title} value={data.available.orderStatuses ? formatNumber(data.pending) : NA} icon={ClockIcon} hint={data.available.orderStatuses ? 'Awaiting kitchen or confirmation (today)' : NA_HINT} className="h-full" />
 }
 
 function EmployeesKpi({ data, title }: WidgetProps) {
@@ -133,7 +144,7 @@ function EmployeesKpi({ data, title }: WidgetProps) {
 }
 
 function LowStockKpi({ data, title }: WidgetProps) {
-  return <StatCard label={title} value={formatNumber(data.lowStockCount)} icon={AlertTriangleIcon} hint="Items at or below minimum" className="h-full" />
+  return <StatCard label={title} value={data.available.lowStock ? formatNumber(data.lowStockCount) : NA} icon={AlertTriangleIcon} hint={data.available.lowStock ? 'Items below their reorder level' : NA_HINT} className="h-full" />
 }
 
 /* Chart widgets */
@@ -146,6 +157,9 @@ const revenueConfig = {
 function RevenueTrend({ data, title }: WidgetProps) {
   return (
     <ChartCard title={title} description="Revenue versus expenses">
+      {!data.available.trend ? (
+        <EmptyNote>Sales trend not available</EmptyNote>
+      ) : (
       <ChartContainer config={revenueConfig} className="h-64 w-full">
         <AreaChart data={data.series} margin={{ left: 4, right: 8, top: 8 }}>
           <defs>
@@ -162,6 +176,7 @@ function RevenueTrend({ data, title }: WidgetProps) {
           <Area dataKey="expenses" type="monotone" stroke="var(--color-expenses)" strokeWidth={2} fill="none" strokeDasharray="4 4" />
         </AreaChart>
       </ChartContainer>
+      )}
     </ChartCard>
   )
 }
@@ -171,6 +186,9 @@ const orderConfig = { orders: { label: 'Orders', color: 'var(--chart-2)' } } sat
 function OrderTrend({ data, title }: WidgetProps) {
   return (
     <ChartCard title={title} description="Orders per day">
+      {!data.available.trend ? (
+        <EmptyNote>Order trend not available</EmptyNote>
+      ) : (
       <ChartContainer config={orderConfig} className="h-64 w-full">
         <BarChart data={data.series} margin={{ left: 4, right: 8, top: 8 }}>
           <CartesianGrid vertical={false} />
@@ -180,16 +198,19 @@ function OrderTrend({ data, title }: WidgetProps) {
           <Bar dataKey="orders" fill="var(--color-orders)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ChartContainer>
+      )}
     </ChartCard>
   )
 }
 
-function Donut({ rows, title, description }: { rows: { name: string; value: number }[]; title: string; description: string }) {
+function Donut({ rows, title, description, unavailable }: { rows: { name: string; value: number }[]; title: string; description: string; unavailable?: boolean }) {
   const total = rows.reduce((s, r) => s + r.value, 0)
   const config = Object.fromEntries(rows.map((r, i) => [r.name, { label: titleCase(r.name), color: PIE_COLORS[i % PIE_COLORS.length] }])) satisfies ChartConfig
   return (
     <ChartCard title={title} description={description}>
-      {rows.length === 0 ? (
+      {unavailable ? (
+        <EmptyNote>Not available</EmptyNote>
+      ) : rows.length === 0 ? (
         <EmptyNote>No sales in this range</EmptyNote>
       ) : (
         <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -225,7 +246,7 @@ function SalesCategory({ data, title }: WidgetProps) {
 }
 
 function SalesPayment({ data, title }: WidgetProps) {
-  return <Donut rows={data.byPayment} title={title} description="How customers paid" />
+  return <Donut rows={data.byPayment} title={title} description="How customers paid" unavailable={!data.available.payments} />
 }
 
 const branchConfig = {
@@ -235,7 +256,12 @@ const branchConfig = {
 
 function BranchPerformance({ data, title }: WidgetProps) {
   return (
-    <ChartCard title={title} description="Revenue and profit by branch">
+    <ChartCard title={title} description="Revenue and profit (sales minus expenses) by branch">
+      {!data.available.branches ? (
+        <EmptyNote>Branch comparison not available</EmptyNote>
+      ) : data.branchPerformance.length === 0 ? (
+        <EmptyNote>No sales in this range</EmptyNote>
+      ) : (
       <ChartContainer config={branchConfig} className="h-60 w-full">
         <BarChart data={data.branchPerformance} margin={{ left: 4, right: 8, top: 8 }}>
           <CartesianGrid vertical={false} />
@@ -246,6 +272,7 @@ function BranchPerformance({ data, title }: WidgetProps) {
           <Bar dataKey="profit" fill="var(--color-profit)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ChartContainer>
+      )}
     </ChartCard>
   )
 }
@@ -371,6 +398,7 @@ function BestSellers({ data, title }: WidgetProps) {
 function RecentTransactions({ data, title }: WidgetProps) {
   return (
     <ChartCard title={title} description="Latest income and expenses">
+      {data.recentTransactions.length === 0 && <EmptyNote>No transactions yet</EmptyNote>}
       <ul className="divide-y">
         {data.recentTransactions.map((tx) => (
           <ListRow key={tx.id}>
@@ -393,7 +421,8 @@ function RecentTransactions({ data, title }: WidgetProps) {
 
 function RecentActivity({ data, title }: WidgetProps) {
   return (
-    <ChartCard title={title} description="Across your team today">
+    <ChartCard title={title} description="Latest audited changes">
+      {data.recentActivity.length === 0 && <EmptyNote>No recent activity</EmptyNote>}
       <ul className="divide-y">
         {data.recentActivity.slice(0, 6).map((a) => (
           <ListRow key={a.id}>

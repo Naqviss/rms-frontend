@@ -15,8 +15,6 @@ import {
   PackageCheckIcon,
   ReceiptTextIcon,
   ShoppingBagIcon,
-  SmartphoneIcon,
-  MonitorIcon,
   XIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -86,18 +84,18 @@ export function WebsiteOrders() {
     }
   }, [orders])
 
-  const accept = async (o: Order) => {
-    await update(o.id, { status: 'confirmed', website: o.website ? { ...o.website, acceptance: 'accepted' } : undefined })
-    toast.success('Order accepted')
+  // Server transitions; errors are reported by useResource. Refunds are recorded separately.
+  const attempt = async (o: Order, patch: Partial<Order>, done: string) => {
+    try {
+      await update(o.id, patch)
+      toast.success(done)
+    } catch {
+      // reported by useResource
+    }
   }
-  const reject = async (o: Order) => {
-    await update(o.id, { status: 'cancelled', paymentStatus: 'refunded', website: o.website ? { ...o.website, acceptance: 'rejected' } : undefined })
-    toast.success('Order rejected and payment refunded')
-  }
-  const move = async (o: Order, status: OrderStatus) => {
-    await update(o.id, { status })
-    toast.success('Updated')
-  }
+  const accept = (o: Order) => attempt(o, { status: 'confirmed', website: o.website ? { ...o.website, acceptance: 'accepted' } : undefined }, 'Order accepted')
+  const reject = (o: Order) => attempt(o, { status: 'cancelled', website: o.website ? { ...o.website, acceptance: 'rejected' } : undefined }, 'Order rejected')
+  const move = (o: Order, status: OrderStatus) => attempt(o, { status }, 'Updated')
 
   const list = byStage[stage]
 
@@ -188,7 +186,6 @@ function WebsiteOrderCard({
 }) {
   const delivery = o.website?.fulfillment === 'delivery'
   const awaiting = o.website?.acceptance === 'awaiting'
-  const Device = o.website?.device === 'mobile' ? SmartphoneIcon : MonitorIcon
   const Pay = o.paymentMethod === 'cash' ? BanknoteIcon : CreditCardIcon
   return (
     <Card className="gap-3 py-4">
@@ -204,7 +201,6 @@ function WebsiteOrderCard({
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <ClockIcon className="size-3" aria-hidden />
               {formatDateTime(o.createdAt)}
-              <Device className="ml-1 size-3" aria-label={o.website?.device} />
             </p>
           </div>
           <StatusBadge status={o.status} />

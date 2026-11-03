@@ -13,7 +13,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/format'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { DiningTable, TableStatus } from '@/types'
 
 const tone: Record<TableStatus, string> = {
@@ -36,9 +36,17 @@ export default function TablesPage() {
   const selected = floor.find((x) => x.id === selectedId) ?? null
   const order = selected?.orderId ? orders?.find((o) => o.id === selected.orderId) : null
 
+  const [saving, setSaving] = useState(false)
   const setStatus = async (tb: DiningTable, status: TableStatus) => {
-    await update(tb.id, { status, orderId: status === 'occupied' ? tb.orderId : null })
-    toast.success(t('common.updated'))
+    setSaving(true)
+    try {
+      await update(tb.id, { status })
+      toast.success(t('common.updated'))
+    } catch {
+      // reported by useResource
+    } finally {
+      setSaving(false)
+    }
   }
 
   const counts = (['available', 'occupied', 'reserved'] as const).map((s) => ({ s, n: floor.filter((x) => x.status === s).length }))
@@ -73,6 +81,8 @@ export default function TablesPage() {
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-80 w-full" />
+            ) : floor.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">{t('common.noData')}</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                 {floor.map((tb) => (
@@ -118,10 +128,11 @@ export default function TablesPage() {
                 </div>
               )}
               <div className="flex flex-col gap-2">
-                {(['available', 'reserved', 'occupied'] as const)
+                {/* Occupancy follows the table's open order; staff can only free or reserve a table. */}
+                {(['available', 'reserved'] as const)
                   .filter((s) => s !== selected.status)
                   .map((s) => (
-                    <Button key={s} variant="outline" onClick={() => setStatus(selected, s)}>
+                    <Button key={s} variant="outline" disabled={saving} onClick={() => setStatus(selected, s)}>
                       {td(`status.${s}`)}
                     </Button>
                   ))}

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -43,11 +42,16 @@ import { useAppStore } from '@/stores/app-store'
 import { useAccount, useAuthStore } from '@/stores/auth-store'
 import { useT } from '@/lib/i18n/use-t'
 import { languageMeta } from '@/lib/i18n/dictionary'
-import { branchName, currentTenantBranches } from '@/mocks/branches'
-import { notifications as seedNotifications, roles } from '@/mocks/platform'
+import { branchName, currentTenantBranches } from '@/lib/directory'
 import { formatRelative, initials } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
-import type { RoleId } from '@/types'
+import type { NotificationItem } from '@/types'
+import { toast } from 'sonner'
+import { errorMessage } from '@/services/api/client'
+import { text } from '@/services/api/mappers'
+import { useSession } from '@/services/api/session'
+import { markAllNotificationsRead, markNotificationRead, toNotificationItem } from '@/services/api/modules/notifications'
+import { useNotifications, useUnreadCount } from '@/hooks/use-platform'
 
 export function BranchSwitcher() {
   const { t } = useT()
@@ -142,10 +146,49 @@ export function LanguageToggle() {
   )
 }
 
+/** Inbox: GET /api/notifications + unread-count; read / read-all post to the API. */
 export function NotificationsMenu() {
+  const { data, mutate } = useNotifications()
+  const { data: unread, mutate: mutateUnread } = useUnreadCount()
+  const items = (data ?? []).map(toNotificationItem)
+  const refresh = () => Promise.all([mutate(), mutateUnread()])
+  return (
+    <NotificationsPopover
+      items={items}
+      unreadCount={unread}
+      onMarkAllRead={async () => {
+        try {
+          await markAllNotificationsRead()
+        } catch (err) {
+          toast.error(errorMessage(err))
+        }
+        await refresh()
+      }}
+      onRead={async (id) => {
+        try {
+          await markNotificationRead(id)
+        } catch (err) {
+          toast.error(errorMessage(err))
+        }
+        await refresh()
+      }}
+    />
+  )
+}
+
+function NotificationsPopover({
+  items,
+  unreadCount,
+  onMarkAllRead,
+  onRead,
+}: {
+  items: NotificationItem[]
+  unreadCount?: number
+  onMarkAllRead: () => void
+  onRead: (id: string) => void
+}) {
   const { t } = useT()
-  const [items, setItems] = useState(seedNotifications)
-  const unread = items.filter((n) => !n.read).length
+  const unread = unreadCount ?? items.filter((n) => !n.read).length
   const dot = { info: 'bg-primary', warning: 'bg-warning', success: 'bg-success', danger: 'bg-destructive' }
   return (
     <Popover>
@@ -155,31 +198,30 @@ export function NotificationsMenu() {
         <BellIcon />
         {unread > 0 && (
           <span className="absolute end-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-white">
-            {unread}
+            {unread > 99 ? '99+' : unread}
           </span>
         )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 gap-0 p-0">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <p className="text-sm font-semibold">{t('shell.notifications')}</p>
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => setItems((prev) => prev.map((n) => ({ ...n, read: true })))}
-            disabled={unread === 0}
-          >
+          <Button variant="ghost" size="xs" onClick={onMarkAllRead} disabled={unread === 0}>
             <CheckCheckIcon data-icon="inline-start" />
             {t('shell.markAllRead')}
           </Button>
         </div>
         <ul className="max-h-80 overflow-y-auto">
           {items.map((n) => (
-            <li key={n.id} className={cn('flex gap-3 border-b px-4 py-3 last:border-0', !n.read && 'bg-accent/40')}>
+            <li
+              key={n.id}
+              className={cn('flex gap-3 border-b px-4 py-3 last:border-0', !n.read && 'bg-accent/40 cursor-pointer')}
+              onClick={!n.read ? () => onRead(n.id) : undefined}
+            >
               <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', dot[n.level])} aria-hidden />
               <div className="min-w-0">
                 <p className="text-sm font-medium leading-snug">{n.title}</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">{n.body}</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">{formatRelative(n.at)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{n.at ? formatRelative(n.at) : ''}</p>
               </div>
             </li>
           ))}
@@ -193,10 +235,9 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
   const { t, td } = useT()
   const { theme, setTheme } = useTheme()
   const { role } = useAccess()
-  const setRole = useAppStore((s) => s.setRole)
   const logout = useAuthStore((s) => s.logout)
   const router = useRouter()
-  const { user, owner } = useAccount()
+  const { user, owner, isPlatformAdmin } = useAccount()
 
   return (
     <DropdownMenu>
@@ -216,21 +257,6 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
             <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
-        {owner && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{t('shell.demoRole')}</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as RoleId)}>
-                {roles.map((r) => (
-                  <DropdownMenuRadioItem key={r.id} value={r.id}>
-                    {td(`role.${r.id}`, r.name)}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </>
-        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t('shell.theme')}</DropdownMenuLabel>
@@ -253,9 +279,11 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
               <DropdownMenuItem render={<Link href="/settings" />}>
                 <UserIcon /> {t('shell.profile')}
               </DropdownMenuItem>
-              <DropdownMenuItem render={<Link href={mode === 'admin' ? '/dashboard' : '/admin/tenants'} />}>
-                <ShieldCheckIcon /> {mode === 'admin' ? t('shell.backToApp') : t('shell.superAdmin')}
-              </DropdownMenuItem>
+              {(isPlatformAdmin || mode === 'admin') && (
+                <DropdownMenuItem render={<Link href={mode === 'admin' ? '/dashboard' : '/admin/tenants'} />}>
+                  <ShieldCheckIcon /> {mode === 'admin' ? t('shell.backToApp') : t('shell.superAdmin')}
+                </DropdownMenuItem>
+              )}
             </>
           )}
           <DropdownMenuItem render={<a href="https://vercel.com/help" target="_blank" rel="noreferrer" />}>
@@ -277,11 +305,17 @@ export function UserMenu({ mode }: { mode: 'app' | 'admin' }) {
   )
 }
 
+/** Real plan name from GET /api/subscription; non-active states (trial, grace, suspended…) are called out. */
 export function PlanBadge() {
-  const plan = useAppStore((s) => s.plan)
+  const subscription = useSession((s) => s.subscription)
+  if (!subscription) return null
+  const name = text(subscription.plan.name) || subscription.plan.code
+  const status = subscription.status
+  const tone = status === 'active' ? 'secondary' : status === 'trialing' || status === 'grace' ? 'outline' : 'destructive'
   return (
-    <Badge variant="secondary" className="hidden capitalize xl:inline-flex">
-      {plan}
+    <Badge variant={tone} className="hidden capitalize xl:inline-flex">
+      {name}
+      {status !== 'active' && ` · ${status === 'trialing' ? 'trial' : status}`}
     </Badge>
   )
 }

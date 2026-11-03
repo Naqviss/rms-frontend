@@ -17,14 +17,14 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { stockStatus, stockValue } from '@/lib/utils/inventory'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { InventoryItem } from '@/types'
 
 type Mode = { kind: 'edit'; item: InventoryItem } | { kind: 'create' } | { kind: 'adjust'; item: InventoryItem } | null
 
 export default function StockItemsPage() {
   const { t, td } = useT()
-  const { data, isLoading, create, update, remove, removeMany } = useInventory()
+  const { data, isLoading, create, update, remove, removeMany, mutate } = useInventory()
   const { create: logMovement } = useStockMovements()
   const { data: vendors } = useVendors()
   const { inBranch, primaryBranch } = useScope()
@@ -40,7 +40,8 @@ export default function StockItemsPage() {
   const itemFields: FieldDef[] = [
     { name: 'name', label: t('common.name'), required: true, wide: true },
     { name: 'sku', label: 'SKU', required: true },
-    { name: 'category', label: t('common.category'), required: true },
+    // The RMS API stores no stock category, so it is optional.
+    { name: 'category', label: t('common.category') },
     { name: 'quantity', label: t('common.quantity'), type: 'number', required: true },
     { name: 'unit', label: t('inventory.unit'), required: true },
     { name: 'minStock', label: t('inventory.minStock'), type: 'number', required: true },
@@ -155,7 +156,7 @@ export default function StockItemsPage() {
     const delta = Number(v.delta)
     const type = String(v.type) as 'adjustment' | 'wastage' | 'purchase'
     const signed = type === 'wastage' ? -Math.abs(delta) : type === 'purchase' ? Math.abs(delta) : delta
-    await update(mode.item.id, { quantity: Math.max(0, mode.item.quantity + signed) })
+    // The ledger movement itself changes the balance: record it, then reload the stock.
     await logMovement({
       itemId: mode.item.id,
       itemName: mode.item.name,
@@ -167,6 +168,7 @@ export default function StockItemsPage() {
       note: String(v.note ?? ''),
       by: 'Imran Qureshi',
     })
+    await mutate()
     toast.success(t('common.updated'))
   }
 

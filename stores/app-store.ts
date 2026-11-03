@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { DateRange, PlanId, RoleId } from '@/types'
+import type { DateRange } from '@/types'
 import type { Language } from '@/lib/i18n/dictionary'
 import { config } from '@/lib/config'
 
@@ -17,8 +17,6 @@ interface AppState {
   language: Language
   sidebarCollapsed: boolean
   datePreset: DatePreset
-  role: RoleId
-  plan: PlanId
   syncState: SyncState
   lastSyncAt: string
   cancelledAt: string | null
@@ -29,8 +27,6 @@ interface AppState {
   toggleSidebar: () => void
   setSidebarCollapsed: (v: boolean) => void
   setDatePreset: (p: DatePreset) => void
-  setRole: (r: RoleId) => void
-  setPlan: (p: PlanId) => void
   setSyncState: (s: SyncState) => void
   markSynced: () => void
   setCancelled: (v: string | null) => void
@@ -44,10 +40,8 @@ export const useAppStore = create<AppState>()(
       language: 'en',
       sidebarCollapsed: false,
       datePreset: '30d',
-      role: 'tenant-owner',
-      plan: 'enterprise',
       syncState: 'online',
-      lastSyncAt: `${config.referenceDate}T17:58:00`,
+      lastSyncAt: new Date().toISOString().slice(0, 19),
       cancelledAt: null,
       includeTax: false,
       setBranches: (branchIds) => set({ branchIds }),
@@ -55,8 +49,6 @@ export const useAppStore = create<AppState>()(
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setDatePreset: (datePreset) => set({ datePreset }),
-      setRole: (role) => set({ role }),
-      setPlan: (plan) => set({ plan, cancelledAt: null }),
       setSyncState: (syncState) => set({ syncState }),
       markSynced: () => set({ syncState: 'online', lastSyncAt: new Date().toISOString().slice(0, 19) }),
       setCancelled: (cancelledAt) => set({ cancelledAt }),
@@ -69,8 +61,6 @@ export const useAppStore = create<AppState>()(
         language: s.language,
         sidebarCollapsed: s.sidebarCollapsed,
         datePreset: s.datePreset,
-        role: s.role,
-        plan: s.plan,
         cancelledAt: s.cancelledAt,
         includeTax: s.includeTax,
       }),

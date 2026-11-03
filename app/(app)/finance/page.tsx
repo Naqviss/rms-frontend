@@ -16,6 +16,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCompactCurrency, formatCurrency, formatPercent } from '@/lib/utils/format'
 import { useAppStore } from '@/stores/app-store'
+import { daysOf, expenseBuckets, presetWindow, sumMinor, useDailySales, useExpenseSummary, useInsightsReport } from '@/hooks/use-insights'
 
 const flowConfig = {
   income: { label: 'Income', color: 'var(--chart-2)' },
@@ -27,43 +28,44 @@ const categoryConfig = { amount: { label: 'Amount', color: 'var(--chart-1)' } } 
 export default function FinancePage() {
   const { t } = useT()
   const { data, isLoading } = useTransactions()
-  const { inBranch } = useScope()
+  const { inBranch, preset } = useScope()
   const includeTax = useAppStore((s) => s.includeTax)
-  const txs = useMemo(() => inBranch(data ?? []).filter((x) => x.status === 'completed'), [data, inBranch])
+  const window = useMemo(() => presetWindow(preset), [preset])
+  // Totals and the daily flow come from the server's sales report and expense summary.
+  const sales = useInsightsReport('sales', window)
+  const expensesReport = useInsightsReport('expenses', window)
+  const daily = useDailySales(window)
+  const expenseDays = useExpenseSummary('day', window)
+  const cur = sales.currency
 
   const summary = useMemo(() => {
-    let income = 0
-    let tax = 0
-    let expense = 0
-    const byDay = new Map<string, { income: number; expense: number }>()
+    const net = (r: { total_minor: number; tax_minor: number; inclusive_tax_minor: number }) =>
+      includeTax ? r.total_minor : r.total_minor - r.tax_minor - r.inclusive_tax_minor
+    const expByDay = expenseBuckets(expenseDays.data, cur)
+    const salesByDay = new Map((daily.data ?? []).map((d) => [d.date, d.sales]))
+    // No report breaks expenses down by category, so this one card groups the loaded expense rows.
     const byCategory = new Map<string, number>()
-    for (const x of txs) {
-      const day = x.date.slice(0, 10)
-      const bucket = byDay.get(day) ?? { income: 0, expense: 0 }
-      if (x.type === 'income') {
-        const amount = includeTax ? x.amount : x.amount - (x.tax ?? 0)
-        income += amount
-        tax += x.tax ?? 0
-        bucket.income += amount
-      } else {
-        expense += x.amount
-        bucket.expense += x.amount
-        byCategory.set(x.category, (byCategory.get(x.category) ?? 0) + x.amount)
-      }
-      byDay.set(day, bucket)
+    for (const x of inBranch(data ?? [])) {
+      if (x.type !== 'expense' || x.date.slice(0, 10) < window.from) continue
+      byCategory.set(x.category, (byCategory.get(x.category) ?? 0) + x.amount)
     }
     return {
-      income,
-      tax,
-      expense,
-      days: [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-30).map(([date, v]) => ({ date: date.slice(5), ...v })),
+      income: sumMinor(sales.data?.rows, net, cur),
+      tax: sumMinor(sales.data?.rows, (r) => r.tax_minor + r.inclusive_tax_minor, cur),
+      expense: sumMinor(expensesReport.data?.rows, (r) => r.total_minor, cur),
+      days: daily.data
+        ? daysOf(window).map((date) => ({ date: date.slice(5), income: sumMinor(salesByDay.get(date), net, cur), expense: expByDay.get(date) ?? 0 }))
+        : [],
       categories: [...byCategory.entries()].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 7),
     }
-  }, [txs, includeTax])
+  }, [data, inBranch, window, includeTax, sales.data, expensesReport.data, daily.data, expenseDays.data, cur])
 
   const profit = summary.income - summary.expense
+  const NA = '—'
+  const haveSales = !!sales.data
+  const haveExpenses = !!expensesReport.data
 
-  if (isLoading) {
+  if (isLoading && !sales.data) {
     return (
       <>
         <PageHeader title={t('finance.title')} description={t('finance.subtitle')} />
@@ -88,13 +90,17 @@ export default function FinancePage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label={t('common.revenue')}
-          value={formatCompactCurrency(summary.income)}
+          value={haveSales ? formatCompactCurrency(summary.income) : NA}
           icon={ArrowUpRightIcon}
-          hint={`${t('finance.taxCollected')}: ${formatCompactCurrency(summary.tax)}`}
+          hint={haveSales ? `${t('finance.taxCollected')}: ${formatCompactCurrency(summary.tax)}` : 'Not available'}
         />
-        <StatCard label={t('common.expenses')} value={formatCompactCurrency(summary.expense)} icon={ArrowDownRightIcon} />
-        <StatCard label={t('common.profit')} value={formatCompactCurrency(profit)} icon={PiggyBankIcon} />
-        <StatCard label={t('finance.margin')} value={formatPercent(summary.income ? (profit / summary.income) * 100 : 0)} icon={ReceiptIcon} />
+        <StatCard label={t('common.expenses')} value={haveExpenses ? formatCompactCurrency(summary.expense) : NA} hint={haveExpenses ? undefined : 'Not available'} icon={ArrowDownRightIcon} />
+        <StatCard label={t('common.profit')} value={haveSales && haveExpenses ? formatCompactCurrency(profit) : NA} hint="Sales minus recorded expenses" icon={PiggyBankIcon} />
+        <StatCard
+          label={t('finance.margin')}
+          value={haveSales && haveExpenses ? formatPercent(summary.income ? (profit / summary.income) * 100 : 0) : NA}
+          icon={ReceiptIcon}
+        />
       </div>
       <div className="grid gap-4 lg:grid-cols-5">
         <ChartCard className="lg:col-span-3" title={t('finance.cashFlow')}>

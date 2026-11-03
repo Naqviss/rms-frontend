@@ -2,17 +2,15 @@
 
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { toast } from 'sonner'
 import { DataTable } from '@/components/common/data-table'
 import { PageHeader } from '@/components/common/page-header'
-import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useOrders, useRiders } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency } from '@/lib/utils/format'
-import { branchName } from '@/mocks/branches'
-import type { Rider, RiderStatus } from '@/types'
+import { branchName } from '@/lib/directory'
+import type { Rider } from '@/types'
 
 interface RiderRow extends Rider {
   deliveries: number
@@ -22,7 +20,7 @@ interface RiderRow extends Rider {
 
 export default function RidersPage() {
   const { t } = useT()
-  const { data: riders, isLoading, update } = useRiders()
+  const { data: riders, isLoading } = useRiders()
   const { data: orders } = useOrders()
   const { inBranch, inRange } = useScope()
 
@@ -43,11 +41,6 @@ export default function RidersPage() {
     })
   }, [riders, orders, inBranch, inRange])
 
-  const setStatus = async (r: Rider, status: RiderStatus) => {
-    await update(r.id, { status })
-    toast.success(t('common.updated'))
-  }
-
   const columns = useMemo<ColumnDef<RiderRow, unknown>[]>(
     () => [
       { accessorKey: 'name', header: t('common.name'), cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
@@ -62,19 +55,6 @@ export default function RidersPage() {
         cell: ({ row }) => <span className="tabular-nums">{row.original.avgMinutes ? `${row.original.avgMinutes} min` : '-'}</span>,
       },
       { accessorKey: 'fees', header: 'Fees collected', cell: ({ row }) => <span className="tabular-nums">{formatCurrency(row.original.fees)}</span> },
-      {
-        id: 'actions',
-        enableHiding: false,
-        enableSorting: false,
-        header: () => <span className="sr-only">{t('common.actions')}</span>,
-        cell: ({ row }) => (
-          <RowActions
-            actions={(['available', 'on-delivery', 'off-duty'] as RiderStatus[])
-              .filter((s) => s !== row.original.status)
-              .map((s) => ({ label: `Mark ${s.replace('-', ' ')}`, onSelect: () => setStatus(row.original, s) }))}
-          />
-        ),
-      },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t],
@@ -82,7 +62,7 @@ export default function RidersPage() {
 
   return (
     <>
-      <PageHeader title={t('nav.riders')} description="Your delivery team, their availability and performance." />
+      <PageHeader title={t('nav.riders')} description="Employees with a rider or driver designation. Availability follows their open delivery tasks; manage riders on the Employees page." />
       <DataTable columns={columns} data={rows} isLoading={isLoading} exportName="riders" />
     </>
   )

@@ -16,7 +16,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { stockStatus } from '@/lib/utils/inventory'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types'
 
 export default function PurchaseOrdersPage() {

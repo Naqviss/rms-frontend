@@ -21,15 +21,14 @@ import { StatCard } from '@/components/common/stat-card'
 import { RecipeSheet, type RecipeBookDraft } from '@/components/recipes/recipe-sheet'
 import { VaultSettingsDialog, VaultUnlockDialog, VaultWelcome } from '@/components/recipes/vault-dialogs'
 import { useAccess } from '@/hooks/use-access'
-import { useProducts, useRecipeAccess, useRecipes } from '@/hooks/use-data'
+import { useCategories, useProducts, useRecipeAccess, useRecipes } from '@/hooks/use-data'
 import { useUnitCosts } from '@/hooks/use-unit-costs'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { recipeCost } from '@/lib/utils/costing'
 import { formatDateTime, formatNumber } from '@/lib/utils/format'
 import { canOpenRecipe, formatQuantity, ingredientName, kitchenCardHtml, recipeStatus, secretCodes, visibilityLabel, type RecipeStatus } from '@/lib/utils/recipes'
-import { categories } from '@/mocks/menu'
-import { appUsers } from '@/mocks/platform'
+import { useSession } from '@/services/api/session'
 import { isVaultOpen, useRecipeVault } from '@/stores/recipe-vault-store'
 import type { Product, RecipeAccessAction, RecipeAccessEvent } from '@/types'
 
@@ -50,7 +49,9 @@ export default function RecipeBookPage() {
   const { products, recipes, catalog, isLoading } = useUnitCosts()
   const { update: updateProduct } = useProducts()
   const { create: createRecipe, update: updateRecipe } = useRecipes()
-  const { data: accessLog, create: createAccessEvent } = useRecipeAccess()
+  const { data: accessLog } = useRecipeAccess()
+  const categories = useCategories().data ?? []
+  const me = useSession((s) => s.me)
 
   const welcomed = useRecipeVault((s) => s.welcomed)
   const pinHash = useRecipeVault((s) => s.pinHash)
@@ -72,7 +73,7 @@ export default function RecipeBookPage() {
   const [category, setCategory] = useState('all')
 
   const vaultOpen = isVaultOpen({ pinHash, unlockedUntil }, now)
-  const userName = appUsers.find((u) => u.role === role)?.name ?? td(`role.${role}`)
+  const userName = me?.display_name || me?.email || td(`role.${role}`)
   const viewerLabel = `${userName} (${td(`role.${role}`)})`
 
   // Re-check the auto-lock deadline so the vault closes on its own while the page sits open.
@@ -89,16 +90,9 @@ export default function RecipeBookPage() {
   }, [isOwner, openId, vaultOpen, autoLockMinutes])
 
   const log = useCallback(
-    (action: RecipeAccessAction, product: Pick<Product, 'id' | 'name'> | null) =>
-      void createAccessEvent({
-        recipeId: product?.id ?? null,
-        itemName: product?.name ?? 'Recipe vault',
-        userName,
-        role,
-        action,
-        at: new Date().toISOString().slice(0, 19),
-      }),
-    [createAccessEvent, userName, role],
+    // The RMS API has no recipe access log, so nothing is recorded (the log tab stays empty).
+    (_action: RecipeAccessAction, _product: Pick<Product, 'id' | 'name'> | null) => undefined,
+    [],
   )
 
   const recipeByProduct = useMemo(() => new Map(recipes.map((r) => [r.productId, r])), [recipes])

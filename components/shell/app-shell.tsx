@@ -21,6 +21,10 @@ import {
 import { useAccess } from '@/hooks/use-access'
 import { useAppStore } from '@/stores/app-store'
 import { useAccount, useAuthHydrated, useAuthStore } from '@/stores/auth-store'
+import { apiScope, setUnauthenticatedHandler } from '@/services/api/client'
+import { hasSession } from '@/services/api/auth'
+import { bootstrapSession, useSession } from '@/services/api/session'
+import { scopeBranchIds } from '@/services/api/adapter'
 import { useT } from '@/lib/i18n/use-t'
 import { appNav, flattenNav } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
@@ -102,9 +106,27 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const branchIds = useAppStore((s) => s.branchIds)
   const setBranches = useAppStore((s) => s.setBranches)
 
+  const logout = useAuthStore((s) => s.logout)
+  const sessionStatus = useSession((s) => s.status)
+  const sessionError = useSession((s) => s.error)
+  // A remembered username without stored tokens is not a session.
+  const signedIn = Boolean(username) && hasSession()
+
   useEffect(() => {
-    if (hydrated && !username) router.replace(`/login?next=${encodeURIComponent(pathname)}`)
-  }, [hydrated, username, pathname, router])
+    if (hydrated && !signedIn) router.replace(`/login?next=${encodeURIComponent(pathname)}`)
+  }, [hydrated, signedIn, pathname, router])
+
+  // Resolve tenant, branches, permissions and plan once per page load.
+  useEffect(() => {
+    if (!hydrated || !signedIn) return
+    setUnauthenticatedHandler(() => logout())
+    if (sessionStatus === 'idle') void bootstrapSession()
+  }, [hydrated, signedIn, sessionStatus, logout])
+
+  // Branch-scoped calls default to the first selected branch.
+  useEffect(() => {
+    if (sessionStatus === 'ready') apiScope.branchId = scopeBranchIds()[0] ?? null
+  }, [branchIds, sessionStatus])
 
   // Staff only work in the branches they are assigned to.
   useEffect(() => {
@@ -113,10 +135,36 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!allowed.length || allowed.length !== branchIds.length) setBranches(allowed.length ? allowed : user.branchIds)
   }, [hydrated, username, owner, user, branchIds, setBranches])
 
-  if (!hydrated || !username) {
+  if (!hydrated || !signedIn || sessionStatus === 'idle' || sessionStatus === 'loading') {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <Spinner className="size-6 text-muted-foreground" />
+      </div>
+    )
+  }
+  if (sessionStatus !== 'ready') {
+    const message = {
+      unprovisioned: 'This sign-in has no RMS account yet. Ask your restaurant admin for an invitation, or complete onboarding.',
+      'no-tenant': 'Your account is not an active member of any restaurant. Accept a pending invitation or contact your admin.',
+      error: sessionError ?? 'Could not load your workspace.',
+    }[sessionStatus as 'unprovisioned' | 'no-tenant' | 'error']
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background p-4">
+        <Empty className="max-w-md border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ShieldAlertIcon />
+            </EmptyMedia>
+            <EmptyTitle>Workspace unavailable</EmptyTitle>
+            <EmptyDescription>{message}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="flex-row justify-center">
+            {sessionStatus === 'error' && <Button onClick={() => void bootstrapSession()}>Retry</Button>}
+            <Button variant="outline" onClick={() => logout()}>
+              Sign out
+            </Button>
+          </EmptyContent>
+        </Empty>
       </div>
     )
   }

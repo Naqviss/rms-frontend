@@ -22,6 +22,7 @@ import {
   Wallet,
   Wifi,
   Briefcase,
+  CalendarClock,
   LineChart,
   type LucideIcon,
 } from 'lucide-react'
@@ -78,6 +79,7 @@ export const appNav: NavGroup[] = [
           { href: '/delivery/riders', label: 'nav.riders' },
         ],
       },
+      { href: '/reservations', label: 'nav.reservations', icon: CalendarClock, module: 'customers' },
       { href: '/website', label: 'nav.websiteOrders', icon: Globe, module: 'website' },
       {
         href: '/inventory',

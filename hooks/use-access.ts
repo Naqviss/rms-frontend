@@ -1,28 +1,29 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useAppStore } from '@/stores/app-store'
 import { useAccount } from '@/stores/auth-store'
-import { roles } from '@/mocks/platform'
 import { planRank, type NavItem } from '@/lib/navigation'
+import { planTier, useSession } from '@/services/api/session'
+import { grants } from '@/services/api/permissions'
 import type { PermissionAction, PermissionModule } from '@/types'
 
 export type AccessState = 'allowed' | 'forbidden' | 'locked'
 
-/** Resolves role permissions and subscription plan gating for the current demo session. */
+/**
+ * What the current user may see, from the server's effective permission codes
+ * (GET /api/me/access) and the tenant's subscription plan. This only shapes the UI —
+ * the backend enforces every request.
+ */
 export function useAccess() {
-  const { account, owner } = useAccount()
-  const demoRole = useAppStore((s) => s.role)
-  // Only the owner can preview other roles; staff accounts always use their own.
-  const role = account && !owner ? account.role : demoRole
-  const plan = useAppStore((s) => s.plan)
+  const { account } = useAccount()
+  const role = account?.role ?? 'branch-manager'
+  const permissions = useSession((s) => s.permissions)
+  const subscription = useSession((s) => s.subscription)
+  const plan = planTier(subscription)
 
   const can = useCallback(
-    (module: PermissionModule, action: PermissionAction = 'view') => {
-      const r = roles.find((x) => x.id === role)
-      return !!r?.permissions[module]?.includes(action)
-    },
-    [role],
+    (module: PermissionModule, action: PermissionAction = 'view') => grants(permissions, module, action),
+    [permissions],
   )
 
   const stateFor = useCallback(

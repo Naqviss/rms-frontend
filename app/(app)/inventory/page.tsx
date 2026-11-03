@@ -17,7 +17,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/lib/utils/format'
 import { stockStatus, stockValue } from '@/lib/utils/inventory'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 
 const statusConfig = {
   'in-stock': { label: 'In stock', color: 'var(--chart-2)' },

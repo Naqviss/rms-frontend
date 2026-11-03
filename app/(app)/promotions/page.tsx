@@ -22,7 +22,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/lib/utils/format'
 import { describeDiscount, describeSchedule, PROMO_STATUS, promoStatus, type PromoStatus } from '@/lib/utils/promotions'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { Discount, DiscountScope } from '@/types'
 
 const NEW_DISCOUNT: Omit<Discount, 'id'> = {
@@ -49,6 +49,21 @@ export default function DiscountsPage() {
   const [editing, setEditing] = useState<Discount | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Discount | null>(null)
   const [status, setStatus] = useState<PromoStatus | 'all'>('all')
+  // Rows with a write in flight, so a second click cannot race the first (no retries on writes).
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
+  const guarded = async (id: string, run: () => Promise<unknown>) => {
+    if (busy.has(id)) return
+    setBusy((b) => new Set(b).add(id))
+    try {
+      await run()
+    } finally {
+      setBusy((b) => {
+        const next = new Set(b)
+        next.delete(id)
+        return next
+      })
+    }
+  }
 
   const targetName = (d: Pick<Discount, 'scope' | 'targetId'>) =>
     d.scope === 'order'
@@ -151,8 +166,9 @@ export default function DiscountsPage() {
           <div onClick={(e) => e.stopPropagation()}>
             <Switch
               checked={row.original.active}
+              disabled={busy.has(row.original.id)}
               aria-label={`${t('common.active')}: ${row.original.name}`}
-              onCheckedChange={(v) => update(row.original.id, { active: v })}
+              onCheckedChange={(v) => guarded(row.original.id, () => update(row.original.id, { active: v }))}
             />
           </div>
         ),
@@ -168,11 +184,12 @@ export default function DiscountsPage() {
               { label: t('common.edit'), onSelect: () => setEditing(row.original) },
               {
                 label: 'Duplicate',
-                onSelect: async () => {
-                  const { id: _id, ...copy } = row.original
-                  await create({ ...copy, name: `${copy.name} (copy)`, code: copy.code ? `${copy.code}2` : '', used: 0, active: false })
-                  toast.success(t('common.created'))
-                },
+                onSelect: () =>
+                  guarded(row.original.id, async () => {
+                    const { id: _id, ...copy } = row.original
+                    await create({ ...copy, name: `${copy.name} (copy)`, code: copy.code ? `${copy.code}2` : '', used: 0, active: false })
+                    toast.success(t('common.created'))
+                  }),
               },
               { label: t('common.delete'), destructive: true, onSelect: () => setDeleting(row.original) },
             ]}
@@ -181,7 +198,7 @@ export default function DiscountsPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, categories, products],
+    [t, categories, products, busy],
   )
 
   const current = editing && editing !== 'new' ? editing : NEW_DISCOUNT

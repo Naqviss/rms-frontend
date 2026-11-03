@@ -28,7 +28,7 @@ import { config } from '@/lib/config'
 import { cn } from '@/lib/utils'
 import { budgetState, daysUntil, EXPENSE_CATEGORIES, monthProgress } from '@/lib/utils/expenses'
 import { formatCompactCurrency, formatCurrency, formatDateTime, formatPercent } from '@/lib/utils/format'
-import { branchName, currentTenantBranches } from '@/mocks/branches'
+import { branchName, currentTenantBranches } from '@/lib/directory'
 import type { Transaction } from '@/types'
 
 /** Mock data is anchored to a fixed trading day; "today" means that day everywhere in the app. */

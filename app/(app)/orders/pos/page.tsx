@@ -2,36 +2,42 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { GiftIcon, MinusIcon, PlusIcon, SearchIcon, ShoppingBagIcon, Trash2Icon } from 'lucide-react'
+import { BanknoteIcon, MinusIcon, PlusIcon, SearchIcon, ShoppingBagIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { ProductOptionsDialog } from '@/components/menu/product-options-dialog'
-import { useCustomers, useCategories, useDeals, useDiscounts, useOrders, useProducts, useTables } from '@/hooks/use-data'
+import { useCustomers, useCategories, useDiscounts, useOrders, useProducts, useTables } from '@/hooks/use-data'
+import { usePosCheckout, UNKNOWN_OUTCOME } from '@/hooks/use-front-of-house'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/format'
 import { hasOptions } from '@/lib/utils/options'
-import { dealValue, describeDiscount, discountFor, promoStatus, unavailableReason } from '@/lib/utils/promotions'
-import { TAX_RATE } from '@/mocks/orders'
-import type { Deal, OrderItem, OrderType, PaymentMethod, Product, SalesChannel } from '@/types'
+import { promoStatus } from '@/lib/utils/promotions'
+import type { OrderItem, OrderType, PaymentMethod, Product } from '@/types'
 
-const channelFor: Record<OrderType, SalesChannel> = { 'dine-in': 'dine-in', takeaway: 'takeaway', delivery: 'own-delivery', online: 'website' }
+type TillMethod = Exclude<PaymentMethod, 'split'>
 
 interface CartLine extends OrderItem {
   key: string
 }
 
+/**
+ * Live POS. The server prices every order (menu prices, tax, promotions, coupon, delivery fee), so
+ * the till places the order first, shows the server's total, then records the payment for what is
+ * due and issues the receipt. Keys for each step are created once per sale and reused on retry.
+ */
 export default function PosPage() {
   const { t, td } = useT()
   // An order is rung up at one branch: the first of those picked in the top bar.
@@ -39,10 +45,10 @@ export default function PosPage() {
   const { data: products } = useProducts()
   const { data: categories } = useCategories()
   const { data: customers } = useCustomers()
-  const { data: tables, update: updateTable } = useTables()
-  const { create: createOrder, data: orders } = useOrders()
-  const { data: deals, update: updateDeal } = useDeals()
-  const { data: discounts, update: updateDiscount } = useDiscounts()
+  const { data: tables, mutate: refreshTables } = useTables()
+  const { mutate: refreshOrders } = useOrders()
+  const { data: discounts } = useDiscounts()
+  const checkout = usePosCheckout()
 
   const [category, setCategory] = useState('all')
   const [query, setQuery] = useState('')
@@ -50,10 +56,9 @@ export default function PosPage() {
   const [orderType, setOrderType] = useState<OrderType>('dine-in')
   const [tableId, setTableId] = useState('')
   const [customerId, setCustomerId] = useState('walk-in')
-  /** 'none', 'manual' (staff-entered %), or a discount id. */
-  const [discountChoice, setDiscountChoice] = useState('none')
-  const [discountPct, setDiscountPct] = useState(0)
-  const [method, setMethod] = useState<PaymentMethod>('cash')
+  /** 'none' or a discount id; only coupon-code discounts can be sent (promotions apply server-side). */
+  const [couponChoice, setCouponChoice] = useState('none')
+  const [method, setMethod] = useState<TillMethod>('cash')
   const [customizing, setCustomizing] = useState<Product | null>(null)
 
   const visible = useMemo(
@@ -66,27 +71,11 @@ export default function PosPage() {
   )
 
   const freeTables = (tables ?? []).filter((x) => x.branchId === activeBranch && x.status === 'available')
+  const coupons = (discounts ?? []).filter((d) => d.code && promoStatus(d) === 'live')
+  const coupon = coupons.find((d) => d.id === couponChoice)
 
-  const channel = channelFor[orderType]
-  const shownDeals = useMemo(
-    () => (deals ?? []).filter((d) => promoStatus(d) === 'live' && d.name.toLowerCase().includes(query.toLowerCase())),
-    [deals, query],
-  )
-
+  // Menu prices only: an estimate until the server prices the order.
   const subtotal = cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0)
-  // Discounts the till can offer right now, each with what it would take off this cart (or why it can't be used).
-  const discountOptions = (discounts ?? [])
-    .filter((d) => promoStatus(d) === 'live')
-    .map((d) => {
-      const reason = unavailableReason(d, activeBranch, channel)
-      const result = reason ? { amount: 0, reason } : discountFor(d, cart, products ?? [])
-      return { discount: d, ...result }
-    })
-  const chosen = discountOptions.find((o) => o.discount.id === discountChoice)
-  const discount =
-    discountChoice === 'manual' ? Math.round((subtotal * discountPct) / 100) : chosen && !chosen.reason ? chosen.amount : 0
-  const tax = Math.round((subtotal - discount) * TAX_RATE)
-  const total = subtotal - discount + tax
 
   const openItem = (p: Product) => {
     if (!p.available) return
@@ -103,58 +92,52 @@ export default function PosPage() {
     })
   }
 
-  const addDeal = (d: Deal) => {
-    const key = `deal:${d.id}`
-    const contents = d.items.map((i) => `${i.quantity}× ${products?.find((p) => p.id === i.productId)?.name ?? 'item'}`)
-    setCart((prev) =>
-      prev.some((l) => l.key === key)
-        ? prev.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l))
-        : [...prev, { key, productId: d.id, dealId: d.id, name: d.name, quantity: 1, unitPrice: d.price, options: contents }],
-    )
-  }
-
   const changeQty = (key: string, delta: number) =>
     setCart((prev) => prev.flatMap((l) => (l.key !== key ? [l] : l.quantity + delta <= 0 ? [] : [{ ...l, quantity: l.quantity + delta }])))
 
   const placeOrder = async () => {
-    if (cart.length === 0) return
+    if (cart.length === 0 || checkout.busy) return
     if (orderType === 'dine-in' && !tableId) {
       toast.error(t('orders.selectTable'))
       return
     }
-    const customer = customers?.find((c) => c.id === customerId)
-    const number = `#${1000 + (orders?.length ?? 0) + 1}`
-    const order = await createOrder({
-      number,
-      customerId: customer?.id ?? null,
-      customerName: customer?.name ?? t('orders.walkIn'),
-      type: orderType,
-      status: 'pending',
-      paymentStatus: 'paid',
-      paymentMethod: method,
-      items: cart.map(({ key: _key, ...i }) => i),
-      subtotal,
-      discount,
-      tax,
-      total,
-      branchId: activeBranch,
-      tableId: orderType === 'dine-in' ? tableId : null,
-      createdAt: new Date().toISOString().slice(0, 19),
-      notes: '',
-      source: 'pos',
-      discountId: chosen && discount > 0 ? chosen.discount.id : undefined,
-    })
-    if (orderType === 'dine-in' && tableId) await updateTable(tableId, { status: 'occupied', orderId: order.id })
-    if (chosen && discount > 0) await updateDiscount(chosen.discount.id, { used: chosen.discount.used + 1 })
-    for (const l of cart) {
-      const deal = l.dealId ? deals?.find((d) => d.id === l.dealId) : undefined
-      if (deal) await updateDeal(deal.id, { sold: deal.sold + l.quantity })
+    if (orderType === 'delivery' && customerId === 'walk-in') {
+      toast.error('Delivery orders need a customer with a saved address')
+      return
     }
-    toast.success(`${t('orders.orderPlaced')} (${number})`)
+    const sale = await checkout.place({
+      branchId: activeBranch,
+      type: orderType,
+      tableId: orderType === 'dine-in' ? tableId : null,
+      customerId: customerId === 'walk-in' ? null : customerId,
+      items: cart.map(({ key: _key, ...i }) => i),
+      couponCode: coupon?.code,
+    })
+    if (!sale) return
+    toast.success(
+      sale.order.duplicate
+        ? `${t('orders.orderPlaced')} (${sale.order.number}): already recorded, showing the original`
+        : `${t('orders.orderPlaced')} (${sale.order.number})`,
+    )
     setCart([])
     setTableId('')
-    setDiscountChoice('none')
-    setDiscountPct(0)
+    setCouponChoice('none')
+    void refreshOrders()
+    if (orderType === 'dine-in') void refreshTables()
+  }
+
+  const collect = async () => {
+    if (checkout.busy) return
+    const out = await checkout.pay(method)
+    if (!out) return
+    toast.success(out.receipt ? `Paid ${formatCurrency(out.order.total_minor / 100)} · receipt ${out.receipt.number}` : `Paid ${formatCurrency(out.order.total_minor / 100)}`)
+    checkout.reset()
+    void refreshOrders()
+  }
+
+  const payLater = () => {
+    checkout.reset()
+    void refreshOrders()
   }
 
   return (
@@ -178,12 +161,6 @@ export default function PosPage() {
                 className="w-max"
               >
                 <ToggleGroupItem value="all">{t('common.all')}</ToggleGroupItem>
-                {shownDeals.length > 0 && (
-                  <ToggleGroupItem value="deals" className="gap-1.5">
-                    <GiftIcon className="size-3.5" aria-hidden />
-                    {t('promo.deals')}
-                  </ToggleGroupItem>
-                )}
                 {(categories ?? []).map((c) => (
                   <ToggleGroupItem key={c.id} value={c.id}>
                     {c.name}
@@ -192,42 +169,7 @@ export default function PosPage() {
               </ToggleGroup>
             </ScrollArea>
           </div>
-          {category === 'deals' && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-              {shownDeals.map((d) => {
-                const reason = unavailableReason(d, activeBranch, channel)
-                const value = dealValue(d, products ?? [])
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => addDeal(d)}
-                    disabled={!!reason}
-                    className={cn(
-                      'flex gap-3 overflow-hidden rounded-xl border bg-card p-2.5 text-start transition hover:border-primary/60 hover:shadow-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-                      reason && 'opacity-55',
-                    )}
-                  >
-                    <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                      <Image src={d.image} alt="" fill sizes="80px" className="object-cover" />
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="truncate text-sm font-medium">{d.name}</span>
-                      <span className="line-clamp-2 text-xs text-muted-foreground">
-                        {d.items.map((i) => `${i.quantity}× ${products?.find((p) => p.id === i.productId)?.name ?? 'item'}`).join(', ')}
-                      </span>
-                      <span className="mt-auto flex flex-wrap items-baseline gap-x-2 text-sm">
-                        <span className="font-semibold tabular-nums">{formatCurrency(d.price)}</span>
-                        {value.regular > d.price && <span className="text-xs text-muted-foreground tabular-nums line-through">{formatCurrency(value.regular)}</span>}
-                        {reason && <span className="text-xs font-medium text-warning-foreground dark:text-warning">{reason}</span>}
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          <div className={cn('grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4', category === 'deals' && 'hidden')}>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
             {visible.map((p) => (
               <button
                 key={p.id}
@@ -330,47 +272,21 @@ export default function PosPage() {
               </ul>
             )}
             <Separator />
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="pos-discount-choice" className="shrink-0 text-sm">
-                  {t('orders.applyDiscount')}
-                </Label>
-                <OptionSelect
-                  id="pos-discount-choice"
-                  className="h-8 min-w-0 flex-1"
-                  value={discountChoice}
-                  onValueChange={setDiscountChoice}
-                  options={[
-                    { value: 'none', label: t('promo.noDiscount') },
-                    ...discountOptions.map((o) => ({
-                      value: o.discount.id,
-                      label: o.reason
-                        ? `${o.discount.name} — ${o.reason}`
-                        : `${o.discount.name} — ${o.amount ? `-${formatCurrency(o.amount)}` : describeDiscount(o.discount)}`,
-                      disabled: !!o.reason && o.discount.id !== discountChoice,
-                    })),
-                    { value: 'manual', label: t('promo.manual') },
-                  ]}
-                />
-                {discountChoice === 'manual' && (
-                  <Input
-                    id="pos-discount"
-                    type="number"
-                    min={0}
-                    max={50}
-                    inputMode="numeric"
-                    aria-label={`${t('promo.manual')} (max 50)`}
-                    className="h-8 w-16 shrink-0 text-end"
-                    value={discountPct}
-                    onChange={(e) => setDiscountPct(Math.min(50, Math.max(0, Number(e.target.value) || 0)))}
-                  />
-                )}
-              </div>
-              {chosen?.reason && <p className="text-xs text-warning-foreground dark:text-warning">{chosen.reason}: not applied.</p>}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="pos-coupon" className="shrink-0 text-sm">
+                {t('orders.applyDiscount')}
+              </Label>
+              <OptionSelect
+                id="pos-coupon"
+                className="h-8 min-w-0 flex-1"
+                value={couponChoice}
+                onValueChange={setCouponChoice}
+                options={[{ value: 'none', label: t('promo.noDiscount') }, ...coupons.map((d) => ({ value: d.id, label: `${d.name} (${d.code})` }))]}
+              />
             </div>
             <ToggleGroup
               value={[method]}
-              onValueChange={(v) => v.length && setMethod(v[0] as PaymentMethod)}
+              onValueChange={(v) => v.length && setMethod(v[0] as TillMethod)}
               variant="outline"
               size="sm"
               className="w-full"
@@ -384,27 +300,77 @@ export default function PosPage() {
             </ToggleGroup>
             <dl className="flex flex-col gap-1 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">{t('common.subtotal')}</dt>
+                <dt className="text-muted-foreground">{t('common.subtotal')} (menu prices)</dt>
                 <dd className="tabular-nums">{formatCurrency(subtotal)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">{t('common.discount')}</dt>
-                <dd className="tabular-nums">-{formatCurrency(discount)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">{t('common.tax')} (16%)</dt>
-                <dd className="tabular-nums">{formatCurrency(tax)}</dd>
-              </div>
+              <p className="text-xs text-muted-foreground">Tax, promotions, coupon and delivery fee are calculated by the server when the order is placed.</p>
             </dl>
+            {checkout.unknown && (
+              <Alert variant="destructive">
+                <TriangleAlertIcon />
+                <AlertTitle>Outcome unknown</AlertTitle>
+                <AlertDescription>{UNKNOWN_OUTCOME}</AlertDescription>
+              </Alert>
+            )}
+            {checkout.pending && (
+              <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm" aria-live="polite">
+                <p className="font-medium">
+                  {t('orders.number')} {checkout.pending.order.number} · {checkout.pending.order.status_label}
+                </p>
+                <dl className="flex flex-col gap-1">
+                  {(
+                    [
+                      [t('common.subtotal'), checkout.pending.totals.subtotal],
+                      [t('common.discount'), -checkout.pending.totals.discount],
+                      [t('common.tax'), checkout.pending.totals.tax],
+                      ['Delivery fee', checkout.pending.totals.deliveryFee],
+                      ['Service charge', checkout.pending.totals.serviceCharge],
+                    ] as const
+                  )
+                    .filter(([, v]) => v !== 0)
+                    .map(([k, v]) => (
+                      <div key={k} className="flex justify-between">
+                        <dt className="text-muted-foreground">{k}</dt>
+                        <dd className="tabular-nums">{formatCurrency(v)}</dd>
+                      </div>
+                    ))}
+                  <div className="flex justify-between font-semibold">
+                    <dt>{t('common.total')}</dt>
+                    <dd className="tabular-nums">{formatCurrency(checkout.pending.totals.total)}</dd>
+                  </div>
+                  {checkout.pending.totals.paid > 0 && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Due</dt>
+                      <dd className="tabular-nums">{formatCurrency(checkout.pending.totals.due)}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={placeOrder}>
-              {t('orders.charge')} {formatCurrency(total)}
-            </Button>
-            {cart.length > 0 && (
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => setCart([])}>
-                {t('common.clear')}
-              </Button>
+            {checkout.pending ? (
+              <>
+                <Button className="w-full" size="lg" disabled={checkout.busy || checkout.pending.totals.due <= 0} onClick={collect}>
+                  {checkout.busy ? <Spinner data-icon="inline-start" /> : <BanknoteIcon data-icon="inline-start" />}
+                  {checkout.busy ? 'Recording payment…' : `${t('orders.charge')} ${td(`pay.${method}`)} ${formatCurrency(checkout.pending.totals.due)}`}
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full" disabled={checkout.busy} onClick={payLater}>
+                  Pay later
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button className="w-full" size="lg" disabled={cart.length === 0 || checkout.busy} onClick={placeOrder}>
+                  {checkout.busy && <Spinner data-icon="inline-start" />}
+                  {checkout.busy ? 'Placing order…' : checkout.unknown ? 'Retry this order (same keys)' : 'Place order'}
+                </Button>
+                {cart.length > 0 && (
+                  <Button variant="ghost" size="sm" className="w-full" disabled={checkout.busy} onClick={() => setCart([])}>
+                    {t('common.clear')}
+                  </Button>
+                )}
+              </>
             )}
           </CardFooter>
         </Card>

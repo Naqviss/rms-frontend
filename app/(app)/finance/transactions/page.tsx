@@ -18,7 +18,7 @@ import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDateTime } from '@/lib/utils/format'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { Transaction, TransactionType } from '@/types'
 
 const types: TransactionType[] = ['income', 'expense', 'refund']

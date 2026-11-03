@@ -19,10 +19,14 @@ import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useOrders } from '@/hooks/use-data'
+import { useOrderPayments } from '@/hooks/use-front-of-house'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { PaymentResponseDto } from '@/services/api/generated/schemas'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency, formatDateTime } from '@/lib/utils/format'
-import { branchName } from '@/mocks/branches'
+import { branchName } from '@/lib/directory'
 import type { Order, OrderStatus, OrderType, SalesChannel } from '@/types'
 
 const statuses: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'out-for-delivery', 'completed', 'cancelled']
@@ -87,21 +91,30 @@ export default function OrdersPage() {
 
   const awaitingCount = useMemo(() => scoped.filter((o) => isAwaiting(o) && o.status !== 'cancelled').length, [scoped])
 
-  const setOrderStatus = async (o: Order, next: OrderStatus) => {
-    await update(o.id, { status: next, paymentStatus: next === 'cancelled' ? 'refunded' : o.paymentStatus })
-    toast.success(t('common.updated'))
-    setSelected((s) => (s && s.id === o.id ? { ...s, status: next } : s))
+  const [busyId, setBusyId] = useState<string | null>(null)
+  /** Server transition (version-checked); the sheet shows the record the server returned. */
+  const run = async (o: Order, patch: Partial<Order>, done: string) => {
+    if (busyId) return
+    setBusyId(o.id)
+    try {
+      const next = await update(o.id, patch)
+      toast.success(done)
+      setSelected((s) => (s && s.id === o.id ? next : s))
+    } catch {
+      // reported by useResource
+    } finally {
+      setBusyId(null)
+    }
   }
 
-  const respond = async (o: Order, accept: boolean) => {
-    const patch: Partial<Order> = accept
-      ? { status: 'confirmed' }
-      : { status: 'cancelled', paymentStatus: 'refunded' }
-    if (o.foodpanda) patch.foodpanda = { ...o.foodpanda, acceptance: accept ? 'accepted' : 'rejected', rejectReason: accept ? undefined : 'Rejected by restaurant' }
+  const setOrderStatus = (o: Order, next: OrderStatus) => run(o, { status: next }, t('common.updated'))
+
+  // Refunds are separate (payments below); rejecting does not refund by itself.
+  const respond = (o: Order, accept: boolean) => {
+    const patch: Partial<Order> = accept ? { status: 'confirmed' } : { status: 'cancelled' }
+    if (o.foodpanda) patch.foodpanda = { ...o.foodpanda, acceptance: accept ? 'accepted' : 'rejected' }
     if (o.website) patch.website = { ...o.website, acceptance: accept ? 'accepted' : 'rejected' }
-    await update(o.id, patch)
-    toast.success(accept ? 'Order accepted' : 'Order rejected')
-    setSelected((s) => (s && s.id === o.id ? { ...s, ...patch } : s))
+    return run(o, patch, accept ? 'Order accepted' : 'Order rejected')
   }
 
   const columns = useMemo<ColumnDef<Order, unknown>[]>(
@@ -234,11 +247,11 @@ export default function OrdersPage() {
                 </div>
                 {isAwaiting(selected) && selected.status !== 'cancelled' && (
                   <div className="flex gap-2">
-                    <Button className="flex-1" onClick={() => respond(selected, true)}>
+                    <Button className="flex-1" disabled={busyId === selected.id} onClick={() => respond(selected, true)}>
                       <CheckIcon data-icon="inline-start" />
                       Accept
                     </Button>
-                    <Button className="flex-1" variant="outline" onClick={() => respond(selected, false)}>
+                    <Button className="flex-1" variant="outline" disabled={busyId === selected.id} onClick={() => respond(selected, false)}>
                       <XIcon data-icon="inline-start" />
                       Reject
                     </Button>
@@ -298,21 +311,13 @@ export default function OrdersPage() {
                 {selected.foodpanda && (
                   <div className="flex flex-col gap-1.5 rounded-lg border p-3 text-sm">
                     <p className="font-medium">Foodpanda {selected.foodpanda.externalId}</p>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Commission ({selected.foodpanda.commissionRate}%)</span>
-                      <span className="tabular-nums">-{formatCurrency(selected.foodpanda.commission)}</span>
-                    </div>
-                    <div className="flex justify-between font-medium">
-                      <span>Net payout</span>
-                      <span className="tabular-nums">{formatCurrency(selected.foodpanda.netPayout)}</span>
-                    </div>
+                    {selected.foodpanda.rejectReason && <p className="text-muted-foreground">{selected.foodpanda.rejectReason}</p>}
                   </div>
                 )}
                 {selected.website && (
                   <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm">
                     <ChannelIcon channel="website" size="sm" />
                     <span className="capitalize">{selected.website.fulfillment}</span>
-                    <span className="text-muted-foreground capitalize">{selected.website.device}</span>
                     {selected.website.promoCode && <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{selected.website.promoCode}</span>}
                   </div>
                 )}
@@ -330,11 +335,13 @@ export default function OrdersPage() {
                 {selected.notes && (
                   <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{selected.notes}</p>
                 )}
+                <OrderPayments order={selected} />
                 {selected.status !== 'completed' && selected.status !== 'cancelled' && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm font-medium">{t('orders.updateStatus')}</p>
                     <OptionSelect
                       value={selected.status}
+                      disabled={busyId === selected.id}
                       onValueChange={(v) => setOrderStatus(selected, v as OrderStatus)}
                       options={statuses.map((s) => ({ value: s, label: td(`status.${s}`) }))}
                       aria-label={t('orders.updateStatus')}
@@ -347,5 +354,49 @@ export default function OrdersPage() {
         </SheetContent>
       </Sheet>
     </>
+  )
+}
+
+/** Payments recorded against the order, with a full refund of what remains on each. */
+function OrderPayments({ order }: { order: Order }) {
+  const { payments, isLoading, busy, refund } = useOrderPayments(order)
+  const [refunding, setRefunding] = useState<PaymentResponseDto | null>(null)
+  if (isLoading) return <Skeleton className="h-12 w-full" />
+  if (!payments?.length) return null
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
+      <p className="font-medium">Payments</p>
+      <ul className="flex flex-col gap-2">
+        {payments.map((p) => {
+          const remaining = p.amount_minor - p.refunded_minor
+          return (
+            <li key={p.id} className="flex items-center justify-between gap-2">
+              <span className="min-w-0">
+                {p.method_label} · <span className="text-muted-foreground">{p.status.replace(/_/g, ' ')}</span>
+                {p.refunded_minor > 0 && <span className="block text-xs text-muted-foreground">Refunded {formatCurrency(p.refunded_minor / 100)}</span>}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="tabular-nums">{formatCurrency(p.amount_minor / 100)}</span>
+                {remaining > 0 && (p.status === 'captured' || p.status === 'partially_refunded') && (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setRefunding(p)}>
+                    Refund
+                  </Button>
+                )}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      <ConfirmDialog
+        open={!!refunding}
+        onOpenChange={(o) => !o && setRefunding(null)}
+        title="Refund payment"
+        description={refunding ? `Refund ${formatCurrency((refunding.amount_minor - refunding.refunded_minor) / 100)} of this ${refunding.method_label} payment?` : ''}
+        confirmLabel="Refund"
+        onConfirm={async () => {
+          if (refunding && (await refund(refunding))) toast.success('Refund recorded')
+        }}
+      />
+    </div>
   )
 }
