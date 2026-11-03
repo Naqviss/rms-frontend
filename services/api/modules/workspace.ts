@@ -161,6 +161,9 @@ export const clearConnectionCredentials = (connection: Pick<ConnectionResponseDt
 export const setConnectionStatus = (connection: Pick<ConnectionResponseDto, 'id' | 'version'>, status: 'active' | 'disabled') =>
   api.patch<ConnectionResponseDto>(`/integrations/connections/${connection.id}`, { expected_version: connection.version, status } satisfies UpdateConnectionDto, noBranch)
 
+/** Credential mode, vendor id or settings (never enables a disabled connection). */
+export const updateConnection = (id: string, body: UpdateConnectionDto) => api.patch<ConnectionResponseDto>(`/integrations/connections/${id}`, body, noBranch)
+
 export const listConnections = () => api.listAll<ConnectionResponseDto>('/integrations/connections', noBranch)
 
 export const getConnection = (id: string) => api.get<ConnectionResponseDto>(`/integrations/connections/${id}`, noBranch)

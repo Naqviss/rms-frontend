@@ -12,6 +12,7 @@ import { StatCard } from '@/components/common/stat-card'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useOrders } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
+import { presetWindow } from '@/hooks/use-insights'
 import { useT } from '@/lib/i18n/use-t'
 import { channelOf, channels, isRejected, summarizeChannels } from '@/lib/utils/channels'
 import { formatCompactCurrency, formatCurrency, formatPercent } from '@/lib/utils/format'
@@ -33,10 +34,12 @@ const compareConfig = {
 export default function ChannelComparisonPage() {
   const { t } = useT()
   const { data, isLoading } = useOrders()
-  const { inBranch, inRange } = useScope()
+  const { inBranch, preset } = useScope()
   const [channel, setChannel] = useState('all')
 
-  const orders = useMemo(() => inRange(inBranch(data ?? []), (o) => o.createdAt), [data, inBranch, inRange])
+  // No server report splits sales by channel (only by service type), so this page groups the loaded orders.
+  const from = presetWindow(preset).from
+  const orders = useMemo(() => inBranch(data ?? []).filter((o) => o.createdAt.slice(0, 10) >= from), [data, inBranch, from])
   const summary = useMemo(() => summarizeChannels(orders), [orders])
   const totalGross = summary.reduce((s, c) => s + c.gross, 0)
   const totalNet = summary.reduce((s, c) => s + c.net, 0)

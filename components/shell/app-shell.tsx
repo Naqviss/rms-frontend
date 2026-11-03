@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'
 function Brand({ collapsed, mode }: { collapsed?: boolean; mode: 'app' | 'admin' }) {
   const { t } = useT()
   const { home } = useAccount()
+  const tenantName = useSession((s) => s.tenant?.display_name ?? '')
   return (
     <Link href={mode === 'admin' ? '/admin/tenants' : home} className="flex items-center gap-2.5 px-4 py-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
@@ -41,7 +42,7 @@ function Brand({ collapsed, mode }: { collapsed?: boolean; mode: 'app' | 'admin'
         <span className="leading-tight">
           <span className="block text-[15px] font-semibold text-sidebar-foreground">{t('app.name')}</span>
           <span className="block text-[11px] text-sidebar-foreground/55">
-            {mode === 'admin' ? t('shell.superAdmin') : 'Zaiqa Kitchen'}
+            {mode === 'admin' ? t('shell.superAdmin') : tenantName}
           </span>
         </span>
       )}

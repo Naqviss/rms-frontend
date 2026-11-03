@@ -22,8 +22,3 @@ export const config = {
   storagePrefix: 'rms:v1:',
 } as const
 
-/**
- * Transitional: always true now that mock mode is gone. Remaining `if (live)` checks are being
- * removed; new code should not use it.
- */
-export const live = true as boolean

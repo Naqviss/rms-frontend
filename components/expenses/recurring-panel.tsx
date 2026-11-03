@@ -238,8 +238,13 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
         description="No further bills are generated from today. Bills already generated stay in the expense log."
         confirmLabel="End schedule"
         onConfirm={async () => {
-          if (deleting) await remove(deleting.id)
-          toast.success('Recurring bill deleted')
+          if (!deleting) return
+          try {
+            await remove(deleting.id)
+            toast.success('Recurring bill ended')
+          } catch {
+            // reported by useResource
+          }
         }}
       />
     </div>

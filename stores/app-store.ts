@@ -9,7 +9,15 @@ import { config } from '@/lib/config'
 export type SyncState = 'online' | 'offline' | 'syncing' | 'sync-failed'
 export type DatePreset = DateRange['preset']
 
-export const PRESET_DAYS: Record<DatePreset, number> = { today: 1, '7d': 7, '30d': 30, month: 15 }
+/** Days covered by each preset; "month" runs from the 1st of the current month through today. */
+export const PRESET_DAYS: Record<DatePreset, number> = {
+  today: 1,
+  '7d': 7,
+  '30d': 30,
+  get month() {
+    return new Date().getDate()
+  },
+}
 
 interface AppState {
   /** Branches picked in the top bar; empty means every branch. */
