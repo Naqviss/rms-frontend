@@ -31,8 +31,16 @@ import {
   type OrderDraft,
   type ServerTotals,
 } from '@/services/api/modules/orders'
-import { customerDetail } from '@/services/api/modules/customers'
+import {
+  addAddress,
+  customerAddresses,
+  customerDetail,
+  removeAddress,
+  updateAddress,
+  type AddressInput,
+} from '@/services/api/modules/customers'
 import type {
+  CustomerAddressResponseDto,
   DeliverySettingsResponseDto,
   DeliveryZoneResponseDto,
   OrderResponseDto,
@@ -131,7 +139,7 @@ export function usePosCheckout() {
   }, [])
 
   const pay = useCallback(
-    async (method: Exclude<PaymentMethod, 'split'>): Promise<{ receipt: ReceiptResponseDto | null; order: OrderResponseDto } | null> => {
+    async (method: Exclude<PaymentMethod, 'split' | 'unknown'>): Promise<{ receipt: ReceiptResponseDto | null; order: OrderResponseDto } | null> => {
       if (!pending) return null
       setBusy(true)
       try {
@@ -260,8 +268,8 @@ export function useOrderPayments(order: Pick<Order, 'id' | 'branchId'> | null | 
 
 export function useCustomerStats(customerId: string | null | undefined) {
   const key = useLiveKey('customer', customerId ?? null)
-  const { data, isLoading } = useSWR(key, () => customerDetail(customerId!), { revalidateOnFocus: false })
-  return { stats: data, isLoading }
+  const { data, isLoading, mutate } = useSWR(key, () => customerDetail(customerId!), { revalidateOnFocus: false })
+  return { stats: data, isLoading, refresh: mutate }
 }
 
 /* ------------------------------------------------------------- delivery */
@@ -370,4 +378,35 @@ export function useCreateDeliveryTask(onDone: () => unknown) {
     [onDone],
   )
   return { create, busyId }
+}
+
+export function useCustomerAddresses(customerId: string | null | undefined) {
+  const key = useLiveKey('customer-addresses', customerId ?? null)
+  const { data, isLoading, mutate } = useSWR<CustomerAddressResponseDto[]>(key, () => customerAddresses(customerId!), { revalidateOnFocus: false })
+  const [busy, setBusy] = useState(false)
+  /** One address write; the error is shown and `false` returned so a form can stay open. */
+  const run = useCallback(
+    async (fn: () => Promise<unknown>) => {
+      setBusy(true)
+      try {
+        await fn()
+        return true
+      } catch (err) {
+        report(err)
+        return false
+      } finally {
+        setBusy(false)
+        await mutate()
+      }
+    },
+    [mutate],
+  )
+  return {
+    addresses: data,
+    isLoading,
+    busy,
+    add: (a: AddressInput) => run(() => addAddress(customerId!, a)),
+    edit: (current: CustomerAddressResponseDto, a: AddressInput) => run(() => updateAddress(current, a)),
+    remove: (a: CustomerAddressResponseDto) => run(() => removeAddress(a)),
+  }
 }

@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { Storefront } from '@/components/store/storefront'
 
 export const metadata: Metadata = {
-  title: 'Order food online',
-  description: 'Order your favourites online for delivery or pickup.',
+  title: 'Restaurant website',
+  description: 'Menu, contact details and opening information.',
 }
 
 export default function StorePage() {

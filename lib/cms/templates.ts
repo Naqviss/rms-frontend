@@ -138,6 +138,7 @@ export const accentChoices = ['#1F4D3A', '#E63946', '#D62828', '#F59E0B', '#2563
 
 export const templateById = (id: string) => siteTemplates.find((t) => t.id === id) ?? siteTemplates[0]
 
+/** Illustrative dishes for template thumbnails/previews only — never shown as a restaurant's real menu. */
 export const sampleMenu = [
   { id: 's1', name: 'Smash Burger', description: 'Double patty, cheddar, house sauce', price: 890, image: '/food/burgers.png' },
   { id: 's2', name: 'Margherita', description: 'San Marzano, mozzarella, basil', price: 1190, image: '/food/pizza.png' },

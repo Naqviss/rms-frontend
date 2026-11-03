@@ -3,7 +3,10 @@
 import useSWR, { type SWRConfiguration } from 'swr'
 import { useAppStore } from '@/stores/app-store'
 import { useSession } from '@/services/api/session'
+import { useMemo } from 'react'
+import { useProducts } from '@/hooks/use-data'
 import * as p from '@/services/api/modules/platform'
+import type { SiteItem } from '@/components/cms/site-view'
 
 /**
  * Live-mode SWR hooks for platform data that is not a `Repository<T>` list (subscription detail,
@@ -70,6 +73,7 @@ export const useDeviceBackups = (deviceId: string | null) => useLive('device-bac
 
 export const useIntegrationInbox = (reconciliation?: 'required' | 'resolved') =>
   useLive('integration-inbox', () => p.listIntegrationInbox(reconciliation), [reconciliation])
+export const useConnections = () => useLive('integration-connections', p.listConnections)
 export const useIntegrationLogs = () => useLive('integration-logs', p.listIntegrationLogs)
 
 // CMS -------------------------------------------------------------------------------------------
@@ -84,4 +88,16 @@ export function usePublicSite(tenantId: string | null, branchId?: string) {
 }
 export function usePublicPages(tenantId: string | null) {
   return useSWR(tenantId ? `public-pages:${tenantId}` : null, () => p.listPublicPages(tenantId!), opts)
+}
+
+/** Real menu items for the website preview/storefront: available products, featured first (max 12). */
+export function useSiteItems(): SiteItem[] {
+  const { data: products } = useProducts()
+  return useMemo(() => {
+    const available = (products ?? []).filter((x) => x.available)
+    return [...available]
+      .sort((a, b) => Number(b.featured) - Number(a.featured))
+      .slice(0, 12)
+      .map((x) => ({ id: x.id, name: x.name, description: x.description, price: x.basePrice, image: x.image }))
+  }, [products])
 }

@@ -7,7 +7,7 @@ import type { Repository } from '@/services/repositories'
 import { useAppStore } from '@/stores/app-store'
 import { useSession } from '@/services/api/session'
 import { toast } from 'sonner'
-import { errorMessage, isVersionConflict } from '@/services/api/client'
+import { errorMessage, isVersionConflict, markReported } from '@/services/api/client'
 
 /**
  * Show the server's reason for a failed write (403, version conflict, validation…) and rethrow,
@@ -18,6 +18,7 @@ async function reported<R>(run: () => Promise<R>, reload?: () => unknown): Promi
     return await run()
   } catch (err) {
     toast.error(errorMessage(err))
+    markReported(err)
     // Someone else changed the record: reload the server copy rather than overwrite it.
     if (isVersionConflict(err)) void reload?.()
     throw err

@@ -27,7 +27,7 @@ import { hasOptions } from '@/lib/utils/options'
 import { promoStatus } from '@/lib/utils/promotions'
 import type { OrderItem, OrderType, PaymentMethod, Product } from '@/types'
 
-type TillMethod = Exclude<PaymentMethod, 'split'>
+type TillMethod = Exclude<PaymentMethod, 'split' | 'unknown'>
 
 interface CartLine extends OrderItem {
   key: string

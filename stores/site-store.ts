@@ -3,6 +3,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+/**
+ * Website editor state. The content fields are loaded from and saved to the tenant's site
+ * configuration (GET/PUT /api/cms/site-config, see services/api/modules/cms.ts); only the layout
+ * choices with no backend field (template, section toggles) are kept locally as a preference.
+ */
 export interface SiteContent {
   brandName: string
   heroTitle: string
@@ -34,16 +39,17 @@ interface SiteState {
   setSections: (patch: Partial<SiteSections>) => void
 }
 
-export const defaultContent: SiteContent = {
-  brandName: 'Savour Kitchen',
-  heroTitle: 'Fresh, fast and made to order',
-  heroSubtitle: 'Burgers, pizza and desi favourites delivered hot to your door.',
-  about: 'Family-run since 2012, we cook everything from scratch using locally sourced ingredients.',
-  phone: '+92 300 1234567',
-  email: 'hello@restaurant.pk',
-  address: 'MM Alam Road, Gulberg III, Lahore',
-  seoTitle: 'Order food online | Lahore',
-  seoDescription: 'Order burgers, pizza and desi food online with fast delivery across Lahore.',
+/** Empty until the site configuration loads — never demo copy. */
+export const emptyContent: SiteContent = {
+  brandName: '',
+  heroTitle: '',
+  heroSubtitle: '',
+  about: '',
+  phone: '',
+  email: '',
+  address: '',
+  seoTitle: '',
+  seoDescription: '',
 }
 
 export const useSiteStore = create<SiteState>()(
@@ -51,13 +57,14 @@ export const useSiteStore = create<SiteState>()(
     (set) => ({
       templateId: 'classic-bistro',
       accent: null,
-      content: defaultContent,
-      sections: { menu: true, offers: true, reviews: true, gallery: false, reservations: true },
+      content: emptyContent,
+      sections: { menu: true, offers: false, reviews: false, gallery: false, reservations: false },
       setTemplate: (templateId) => set({ templateId, accent: null }),
       setAccent: (accent) => set({ accent }),
       setContent: (patch) => set((s) => ({ content: { ...s.content, ...patch } })),
       setSections: (patch) => set((s) => ({ sections: { ...s.sections, ...patch } })),
     }),
-    { name: 'site-settings-v1' },
+    // v2: drop content persisted by the demo build; only layout preferences are kept locally.
+    { name: 'site-settings-v2', partialize: (s) => ({ templateId: s.templateId, sections: s.sections }) },
   ),
 )

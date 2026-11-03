@@ -162,7 +162,8 @@ export type OrderStatus =
   | 'completed'
   | 'cancelled'
 export type PaymentStatus = 'paid' | 'unpaid' | 'partial' | 'refunded'
-export type PaymentMethod = 'cash' | 'card' | 'online' | 'split'
+/** `unknown`: the order has no recorded payment yet, or the method could not be mapped. */
+export type PaymentMethod = 'cash' | 'card' | 'online' | 'split' | 'unknown'
 
 export interface OrderItem {
   productId: ID
@@ -218,7 +219,8 @@ export interface FoodpandaInfo {
 export interface WebsiteInfo {
   fulfillment: 'delivery' | 'pickup'
   acceptance: FoodpandaAcceptance
-  device: 'mobile' | 'desktop'
+  /** Not provided by the API. */
+  device?: 'mobile' | 'desktop' | null
   promoCode?: string
 }
 
@@ -253,6 +255,8 @@ export type TableStatus = 'available' | 'occupied' | 'reserved'
 export interface DiningTable extends Entity {
   branchId: ID
   number: number
+  /** Table code from the API (e.g. "T4"), when it isn't purely numeric. */
+  label?: string
   capacity: number
   status: TableStatus
   x: number

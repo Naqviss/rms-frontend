@@ -70,6 +70,18 @@ export function BudgetsPanel({ monthSpend, today }: BudgetsPanelProps) {
     }
   }
 
+  // The RMS API has no budgets resource yet; show an empty state rather than an editor whose saves fail.
+  if (!budgets?.length) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Monthly budgets · {monthName}</CardTitle>
+          <CardDescription>No budgets yet. Category budgets are not available from the server.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>

@@ -224,7 +224,15 @@ const CODE_MESSAGES: Record<string, string> = {
   LICENSE_EXPIRED: 'The device license has expired.',
 }
 
-export const isVersionConflict = (err: unknown) => err instanceof ApiError && (err.code === 'VERSION_CONFLICT' || err.status === 409)
+const reportedErrors = new WeakSet<object>()
+/** Remember that an error has already been shown to the user, so outer handlers don't toast it twice. */
+export const markReported = (err: unknown) => {
+  if (err && typeof err === 'object') reportedErrors.add(err)
+}
+export const wasReported = (err: unknown) => Boolean(err && typeof err === 'object' && reportedErrors.has(err))
+
+/** Only the optimistic-concurrency failure; other 409s (table taken, capacity full…) are business errors. */
+export const isVersionConflict = (err: unknown) => err instanceof ApiError && err.code === 'VERSION_CONFLICT'
 
 /** Human message for toasts: known code copy, then validation detail, then the server message. */
 export function errorMessage(err: unknown): string {

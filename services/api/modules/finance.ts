@@ -113,10 +113,10 @@ const vendorIdFor = (payee: string | undefined) => {
 /* ───────────────────────── value maps ───────────────────────── */
 
 const methodToUi = (m: string | null | undefined): PaymentMethod =>
-  m === 'card' ? 'card' : m === 'bank_transfer' || m === 'external_platform' || m === 'other' ? 'online' : 'cash'
+  m === 'cash' ? 'cash' : m === 'card' ? 'card' : m === 'bank_transfer' || m === 'external_platform' || m === 'other' ? 'online' : 'unknown'
 
 const methodToApi = (m: PaymentMethod | undefined): ApiMethod =>
-  m === 'card' ? 'card' : m === 'online' ? 'bank_transfer' : m === 'split' ? 'other' : 'cash'
+  m === 'cash' ? 'cash' : m === 'card' ? 'card' : m === 'online' ? 'bank_transfer' : 'other'
 
 /** The register a cash payment leaves: the branch's default open cash account. */
 export async function cashAccountFor(branchId: string | null | undefined): Promise<string> {
@@ -211,7 +211,7 @@ async function listLedger(): Promise<LedgerRow[]> {
 }
 
 async function payExpense(e: ExpenseResponseDto, method: PaymentMethod | undefined): Promise<ExpenseResponseDto> {
-  const apiMethod = method ? methodToApi(method) : (e.payment_method ?? 'cash')
+  const apiMethod = method && method !== 'unknown' ? methodToApi(method) : (e.payment_method ?? 'other')
   const body: PayExpenseDto = {
     expected_version: e.version,
     method: apiMethod,
@@ -240,7 +240,7 @@ export const transactions = apiRepository<Transaction, LedgerRow>({
         branch_id: input.branchId || undefined,
         description: input.description || undefined,
         vendor_id: vendorIdFor(input.payee),
-        payment_method: methodToApi(input.method),
+        payment_method: input.method === 'unknown' ? undefined : methodToApi(input.method),
       }),
     }
     let created = await api.post<ExpenseResponseDto>('/finance/expenses', body, { branchId: null })

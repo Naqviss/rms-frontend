@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { OptionSelect, type Option } from '@/components/common/option-select'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { errorMessage, wasReported } from '@/services/api/client'
 
 export type FormValue = string | number | boolean
 export type FormValues = Record<string, FormValue>
@@ -64,8 +66,15 @@ export function FormDialog({ open, onOpenChange, title, description, fields, ini
     setSubmitting(true)
     const out: FormValues = {}
     for (const f of fields) out[f.name] = f.type === 'number' ? Number(values[f.name] ?? 0) : (values[f.name] ?? '')
-    const ok = await onSubmit(out)
-    setSubmitting(false)
+    let ok: void | boolean = false
+    try {
+      ok = await onSubmit(out)
+    } catch (err) {
+      // Keep the dialog open with the user's input; show the reason unless it was already shown.
+      if (!wasReported(err)) toast.error(errorMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
     if (ok !== false) onOpenChange(false)
   }
 

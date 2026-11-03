@@ -23,6 +23,12 @@ interface SiteViewProps {
   onAdd?: (item: SiteItem) => void
   cartCount?: number
   onCart?: () => void
+  /**
+   * Template thumbnail/preview: also renders the template's illustrative blocks (sample reviews,
+   * offer banner, reservation hours, cuisine label). Off for real content, where those would be
+   * fabricated claims about the restaurant.
+   */
+  preview?: boolean
 }
 
 const reviews = [
@@ -35,7 +41,7 @@ const reviews = [
  * Renders a restaurant website from a template. Layout adapts to its own width via container queries,
  * so the same markup works as a scaled preview and as the live storefront.
  */
-export function SiteView({ template, accent, content, sections, items, onAdd, cartCount = 0, onCart }: SiteViewProps) {
+export function SiteView({ template, accent, content, sections, items, onAdd, cartCount = 0, onCart, preview = false }: SiteViewProps) {
   const c = { ...template.colors, accent: accent ?? template.colors.accent }
   const r = template.radius
   const root: CSSProperties = { background: c.bg, color: c.text, fontFamily: fontStacks[template.font] }
@@ -45,9 +51,11 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
 
   const heroText = (align: 'left' | 'center', light = false) => (
     <div className={align === 'center' ? 'mx-auto max-w-2xl text-center' : 'max-w-lg'} style={light ? { color: '#fff' } : undefined}>
-      <p className="mb-3 text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: light ? '#fff' : c.accent }}>
-        {template.cuisine}
-      </p>
+      {preview && (
+        <p className="mb-3 text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: light ? '#fff' : c.accent }}>
+          {template.cuisine}
+        </p>
+      )}
       <h1 className="text-4xl leading-tight font-bold text-balance @3xl:text-5xl" style={heading}>
         {content.heroTitle}
       </h1>
@@ -131,7 +139,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
         </section>
       )}
 
-      {sections.offers && (
+      {preview && sections.offers && (
         <section className="mx-6 mt-10 flex items-center gap-4 p-5 @3xl:mx-12" style={{ ...accentBg, borderRadius: r }}>
           <TruckIcon className="size-8 shrink-0" aria-hidden />
           <div>
@@ -143,7 +151,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
         </section>
       )}
 
-      {sections.menu && (
+      {sections.menu && items.length > 0 && (
         <section id="menu" className="px-6 py-12 @3xl:px-12">
           <h2 className="mb-6 text-2xl font-bold" style={heading}>
             Popular dishes
@@ -211,16 +219,18 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
         </section>
       )}
 
-      <section id="about" className="mx-6 grid gap-6 p-8 @3xl:mx-12 @3xl:grid-cols-[1fr_1.4fr]" style={surface}>
-        <h2 className="text-2xl font-bold" style={heading}>
-          Our story
-        </h2>
-        <p className="leading-relaxed text-pretty" style={{ color: c.muted }}>
-          {content.about}
-        </p>
-      </section>
+      {content.about && (
+        <section id="about" className="mx-6 grid gap-6 p-8 @3xl:mx-12 @3xl:grid-cols-[1fr_1.4fr]" style={surface}>
+          <h2 className="text-2xl font-bold" style={heading}>
+            Our story
+          </h2>
+          <p className="leading-relaxed text-pretty" style={{ color: c.muted }}>
+            {content.about}
+          </p>
+        </section>
+      )}
 
-      {sections.reviews && (
+      {preview && sections.reviews && (
         <section className="px-6 py-12 @3xl:px-12">
           <h2 className="mb-6 text-2xl font-bold" style={heading}>
             Loved by guests
@@ -243,7 +253,7 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
         </section>
       )}
 
-      {sections.gallery && (
+      {sections.gallery && items.length > 0 && (
         <section className="grid grid-cols-4 gap-2 px-6 pb-12 @3xl:px-12">
           {items.slice(0, 4).map((i) => (
             <img key={i.id} src={i.image} alt="" className="aspect-square w-full object-cover" style={{ borderRadius: r }} />
@@ -256,21 +266,27 @@ export function SiteView({ template, accent, content, sections, items, onAdd, ca
           <p className="text-lg font-bold" style={heading}>
             {content.brandName}
           </p>
-          {sections.reservations && <p className="mt-1 text-sm opacity-80">Reservations open daily, 12pm to 11pm.</p>}
+          {preview && sections.reservations && <p className="mt-1 text-sm opacity-80">Reservations open daily, 12pm to 11pm.</p>}
         </div>
         <ul className="flex flex-col gap-2 text-sm opacity-90">
-          <li className="flex items-center gap-2">
-            <PhoneIcon className="size-4" aria-hidden />
-            {content.phone}
-          </li>
-          <li className="flex items-center gap-2">
-            <MailIcon className="size-4" aria-hidden />
-            {content.email}
-          </li>
-          <li className="flex items-center gap-2">
-            <MapPinIcon className="size-4" aria-hidden />
-            {content.address}
-          </li>
+          {content.phone && (
+            <li className="flex items-center gap-2">
+              <PhoneIcon className="size-4" aria-hidden />
+              {content.phone}
+            </li>
+          )}
+          {content.email && (
+            <li className="flex items-center gap-2">
+              <MailIcon className="size-4" aria-hidden />
+              {content.email}
+            </li>
+          )}
+          {content.address && (
+            <li className="flex items-center gap-2">
+              <MapPinIcon className="size-4" aria-hidden />
+              {content.address}
+            </li>
+          )}
         </ul>
       </footer>
     </div>

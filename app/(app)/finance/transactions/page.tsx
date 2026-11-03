@@ -15,6 +15,8 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useTransactions } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
+import { useAccess } from '@/hooks/use-access'
+import { todayIso } from '@/hooks/use-insights'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDateTime } from '@/lib/utils/format'
@@ -27,6 +29,8 @@ export default function TransactionsPage() {
   const { t } = useT()
   const { data, isLoading, create, remove, removeMany } = useTransactions()
   const { inBranch, primaryBranch } = useScope()
+  const { can } = useAccess()
+  const canVoid = can('finance', 'delete')
   const [type, setType] = useState('all')
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
@@ -80,25 +84,32 @@ export default function TransactionsPage() {
         enableHiding: false,
         enableSorting: false,
         header: () => <span className="sr-only">{t('common.actions')}</span>,
-        cell: ({ row }) => <RowActions actions={[{ label: t('common.delete'), destructive: true, onSelect: () => setDeleting(row.original) }]} />,
+        // Income and refunds come from POS payments and are read-only; expenses can be voided.
+        cell: ({ row }) =>
+          row.original.type === 'expense' && canVoid ? <RowActions actions={[{ label: 'Void…', destructive: true, onSelect: () => setDeleting(row.original) }]} /> : null,
       },
     ],
-    [t],
+    [t, canVoid],
   )
 
+  // Only expenses can be recorded by hand (as an unpaid bill; pay it from the expense log).
   const save = async (v: FormValues) => {
-    await create({
-      reference: `TX-${Date.now().toString().slice(-6)}`,
-      type: String(v.type) as TransactionType,
-      category: String(v.category),
-      description: String(v.description),
-      amount: Number(v.amount),
-      method: String(v.method) as Transaction['method'],
-      date: new Date().toISOString().slice(0, 19),
-      branchId: primaryBranch,
-      status: 'completed',
-    })
-    toast.success(t('common.created'))
+    try {
+      await create({
+        reference: '',
+        type: 'expense',
+        category: String(v.category),
+        description: String(v.description),
+        amount: Number(v.amount),
+        method: String(v.method) as Transaction['method'],
+        date: `${todayIso()}T${new Date().toTimeString().slice(0, 8)}`,
+        branchId: primaryBranch,
+        status: 'pending',
+      })
+      toast.success(t('common.created'))
+    } catch {
+      return false
+    }
   }
 
   return (
@@ -107,7 +118,7 @@ export default function TransactionsPage() {
         title={t('finance.transactions')}
         description={t('finance.subtitle')}
         actions={
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={() => setOpen(true)} disabled={!can('finance', 'create')}>
             <PlusIcon data-icon="inline-start" />
             {t('finance.addTransaction')}
           </Button>
@@ -121,7 +132,7 @@ export default function TransactionsPage() {
         exportName="transactions"
         initialSort={[{ id: 'date', desc: true }]}
         exportRows={(r) => r.map((x) => ({ reference: x.reference, date: x.date, type: x.type, category: x.category, amount: x.amount, method: x.method }))}
-        onBulkDelete={(sel) => removeMany(sel.map((s) => s.id))}
+        onBulkDelete={canVoid ? (sel) => removeMany(sel.filter((s) => s.type === 'expense').map((s) => s.id)) : undefined}
         filters={
           <OptionSelect
             className="h-9 w-40"
@@ -137,7 +148,6 @@ export default function TransactionsPage() {
         onOpenChange={setOpen}
         title={t('finance.addTransaction')}
         fields={[
-          { name: 'type', label: t('common.type'), type: 'select', options: types.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })) },
           { name: 'category', label: t('common.category'), required: true },
           { name: 'amount', label: t('common.amount'), type: 'number', required: true },
           {
@@ -152,18 +162,24 @@ export default function TransactionsPage() {
           },
           { name: 'description', label: t('common.description'), type: 'textarea', wide: true },
         ]}
-        initial={{ type: 'expense', category: '', amount: 0, method: 'cash', description: '' }}
+        description="Records an unpaid expense. Income and refunds come from POS payments."
+        initial={{ category: '', amount: 0, method: 'cash', description: '' }}
         onSubmit={save}
       />
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title={t('common.deleteTitle')}
-        description={t('common.deleteBody')}
-        confirmLabel={t('common.delete')}
+        title="Void this expense?"
+        description="Voiding is permanent and audited; a cash-paid expense goes back into its register."
+        confirmLabel="Void expense"
         onConfirm={async () => {
-          if (deleting) await remove(deleting.id)
-          toast.success(t('common.deleted'))
+          if (!deleting) return
+          try {
+            await remove(deleting.id)
+            toast.success('Expense voided')
+          } catch {
+            // reported by useResource
+          }
         }}
       />
     </>

@@ -148,6 +148,7 @@ export function TemplatePreviewDialog({ template, activeId, accent, content, onO
                 <DialogTitle className="flex items-center gap-2">
                   <span className="truncate">{template.name}</span>
                   {active && <Badge variant="secondary">Applied</Badge>}
+                  <Badge variant="outline">Preview · sample dishes and reviews</Badge>
                 </DialogTitle>
                 <DialogDescription className="truncate text-xs">
                   {template.cuisine} · {index + 1} of {siteTemplates.length} · {template.hero} hero, {template.menu} menu, {template.font} type
@@ -243,6 +244,7 @@ export function TemplatePreviewDialog({ template, activeId, accent, content, onO
                     content={content}
                     sections={allSections}
                     items={sampleMenu}
+                    preview
                     cartCount={cart}
                     onCart={() => toast.info('Checkout is disabled in preview')}
                     onAdd={(item) => {

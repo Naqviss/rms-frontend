@@ -48,6 +48,7 @@ import type {
   SubscriptionResponseDto,
   SyncEventResponseDto,
   TenantResponseDto,
+  UpdateConnectionDto,
   UpdateSettingDto,
   UpdateTenantDto,
 } from '@/services/api/generated/schemas'
@@ -155,6 +156,12 @@ export function setConnectionCredentials(connection: Pick<ConnectionResponseDto,
 /** Remove the stored branch credentials (this also disconnects the branch). */
 export const clearConnectionCredentials = (connection: Pick<ConnectionResponseDto, 'id' | 'version'>) =>
   api.delete(`/integrations/connections/${connection.id}/credentials`, { ...noBranch, query: { expected_version: connection.version } })
+
+/** Enable or disable a connection (enabling is verified server-side: credentials, provider login, plan slot). */
+export const setConnectionStatus = (connection: Pick<ConnectionResponseDto, 'id' | 'version'>, status: 'active' | 'disabled') =>
+  api.patch<ConnectionResponseDto>(`/integrations/connections/${connection.id}`, { expected_version: connection.version, status } satisfies UpdateConnectionDto, noBranch)
+
+export const listConnections = () => api.listAll<ConnectionResponseDto>('/integrations/connections', noBranch)
 
 export const getConnection = (id: string) => api.get<ConnectionResponseDto>(`/integrations/connections/${id}`, noBranch)
 

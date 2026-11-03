@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
-import { AlertTriangleIcon, CalendarClockIcon, ClockIcon, PercentIcon, PiggyBankIcon, PlusIcon, ReceiptTextIcon, RepeatIcon, TrophyIcon, WalletIcon } from 'lucide-react'
+import { AlertTriangleIcon, BanknoteIcon, CalendarClockIcon, ClockIcon, PercentIcon, PiggyBankIcon, PlusIcon, ReceiptTextIcon, RepeatIcon, TagsIcon, TrophyIcon, WalletIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -21,29 +21,44 @@ import { StatCard } from '@/components/common/stat-card'
 import { StatusBadge } from '@/components/common/status-badge'
 import { BudgetsPanel } from '@/components/expenses/budgets-panel'
 import { RecurringPanel } from '@/components/expenses/recurring-panel'
+import { CashPanel } from '@/components/expenses/cash-panel'
+import { CategoriesPanel } from '@/components/expenses/categories-panel'
 import { useBudgets, useRecurringExpenses, useTransactions } from '@/hooks/use-data'
+import { useAccess } from '@/hooks/use-access'
+import { presetWindow, sumMinor, todayIso, useExpenseCategories, useExpenseSummary, useInsightsReport } from '@/hooks/use-insights'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
-import { config } from '@/lib/config'
 import { cn } from '@/lib/utils'
 import { budgetState, daysUntil, EXPENSE_CATEGORIES, monthProgress } from '@/lib/utils/expenses'
 import { formatCompactCurrency, formatCurrency, formatDateTime, formatPercent } from '@/lib/utils/format'
 import { branchName, currentTenantBranches } from '@/lib/directory'
 import type { Transaction } from '@/types'
 
-/** Mock data is anchored to a fixed trading day; "today" means that day everywhere in the app. */
-const TODAY = config.referenceDate
-
 const PERIOD_LABEL: Record<string, string> = { today: 'today', '7d': 'the last 7 days', '30d': 'the last 30 days', month: 'this month' }
 
-type Tab = 'log' | 'budgets' | 'recurring'
+type Tab = 'log' | 'budgets' | 'recurring' | 'cash' | 'categories'
 
 export default function ExpensesPage() {
   const { t } = useT()
   const { data: txData, isLoading, create, update, remove, removeMany } = useTransactions()
   const { data: budgets } = useBudgets()
   const { data: recurring } = useRecurringExpenses()
-  const { inBranch, inRange, preset, branchIds, allBranches, primaryBranch } = useScope()
+  const { inBranch, preset, branchIds, allBranches, primaryBranch } = useScope()
+  const { can } = useAccess()
+  const TODAY = todayIso()
+  const window = useMemo(() => presetWindow(preset, TODAY), [preset, TODAY])
+  const monthWindow = useMemo(() => presetWindow('month', TODAY), [TODAY])
+  // Server totals: this month's spend (expense summary) and the period's sales for the ratio.
+  const monthSummary = useExpenseSummary('month', monthWindow)
+  const periodExpenses = useInsightsReport('expenses', window)
+  const periodSales = useInsightsReport('sales', window)
+  const { data: apiCategories } = useExpenseCategories()
+  const [paying, setPaying] = useState<Transaction | null>(null)
+  const [busy, setBusy] = useState(false)
+  const categoryOptions = useMemo(() => {
+    const active = (apiCategories ?? []).filter((c) => c.is_active).map((c) => c.name || c.code)
+    return [...new Set(active.length ? active : EXPENSE_CATEGORIES)]
+  }, [apiCategories])
   const [tab, setTab] = useState<Tab>('log')
   const [category, setCategory] = useState('all')
   const [status, setStatus] = useState('all')
@@ -52,7 +67,7 @@ export default function ExpensesPage() {
   const defaultBranch = primaryBranch
 
   const branchTx = useMemo(() => inBranch(txData ?? []), [txData, inBranch])
-  const periodTx = useMemo(() => inRange(branchTx, (x) => x.date), [branchTx, inRange])
+  const periodTx = useMemo(() => branchTx.filter((x) => x.date.slice(0, 10) >= window.from), [branchTx, window.from])
 
   const expenses = useMemo(
     () =>
@@ -74,8 +89,16 @@ export default function ExpensesPage() {
       total += x.amount
       byCategory.set(x.category, (byCategory.get(x.category) ?? 0) + x.amount)
     }
-    return { total, income, breakdown: [...byCategory.entries()].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount) }
-  }, [periodTx])
+    // The category breakdown groups the loaded expense rows (no report groups by category);
+    // the period total and income are the server's report totals.
+    const cur = periodSales.currency
+    return {
+      total: periodExpenses.data ? sumMinor(periodExpenses.data.rows, (r) => r.total_minor, cur) : total,
+      income: periodSales.data ? sumMinor(periodSales.data.rows, (r) => r.total_minor, cur) : income,
+      known: !!periodExpenses.data && !!periodSales.data,
+      breakdown: [...byCategory.entries()].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount),
+    }
+  }, [periodTx, periodExpenses.data, periodSales.data, periodSales.currency])
 
   // Budgets and pending bills are about the calendar month and the whole ledger, not the top-bar range.
   const month = useMemo(() => {
@@ -88,8 +111,9 @@ export default function ExpensesPage() {
       spend.set(x.category, (spend.get(x.category) ?? 0) + x.amount)
     }
     const pending = branchTx.filter((x) => x.type === 'expense' && x.status === 'pending')
-    return { spend, total, pending, pendingTotal: pending.reduce((s, x) => s + x.amount, 0) }
-  }, [branchTx])
+    const serverTotal = monthSummary.data ? sumMinor(monthSummary.data.totals, (r) => r.total_minor, monthSummary.currency) : null
+    return { spend, total: serverTotal ?? total, known: serverTotal !== null, pending, pendingTotal: pending.reduce((s, x) => s + x.amount, 0) }
+  }, [branchTx, TODAY, monthSummary.data, monthSummary.currency])
 
   const budgetTotal = (budgets ?? []).reduce((s, b) => s + b.monthly, 0)
   const overBudget = (budgets ?? []).filter((b) => budgetState(month.spend.get(b.category) ?? 0, b.monthly) === 'over')
@@ -137,33 +161,29 @@ export default function ExpensesPage() {
         cell: ({ row }) => (
           <RowActions
             actions={[
-              ...(row.original.status === 'pending'
+              ...(row.original.status === 'pending' && can('finance', 'edit') ? [{ label: 'Mark as paid…', onSelect: () => setPaying(row.original) }] : []),
+              // The API only corrects unpaid expenses.
+              ...(row.original.status === 'pending' && can('finance', 'edit') ? [{ label: t('common.edit'), onSelect: () => setEditing(row.original) }] : []),
+              ...(can('finance', 'create')
                 ? [
                     {
-                      label: 'Mark as paid',
+                      label: 'Duplicate for today',
                       onSelect: async () => {
-                        await update(row.original.id, { status: 'completed' })
-                        toast.success('Marked as paid')
+                        const { id: _id, recurringId: _recurring, ...copy } = row.original
+                        // Duplicates start unpaid; paying stays an explicit, confirmed step.
+                        await create({ ...copy, status: 'pending', reference: '', date: `${TODAY}T${new Date().toTimeString().slice(0, 8)}` })
+                        toast.success('Expense duplicated for today')
                       },
                     },
                   ]
                 : []),
-              { label: t('common.edit'), onSelect: () => setEditing(row.original) },
-              {
-                label: 'Duplicate for today',
-                onSelect: async () => {
-                  const { id: _id, recurringId: _recurring, ...copy } = row.original
-                  await create({ ...copy, reference: `EXP-${Date.now().toString().slice(-6)}`, date: `${TODAY}T${new Date().toTimeString().slice(0, 8)}` })
-                  toast.success('Expense duplicated for today')
-                },
-              },
-              { label: t('common.delete'), destructive: true, onSelect: () => setDeleting(row.original) },
+              ...(can('finance', 'delete') ? [{ label: 'Void…', destructive: true, onSelect: () => setDeleting(row.original) }] : []),
             ]}
           />
         ),
       },
     ],
-    [t, update, create],
+    [t, create, can, TODAY],
   )
 
   const save = async (v: FormValues) => {
@@ -176,18 +196,48 @@ export default function ExpensesPage() {
       branchId: String(v.branchId),
       status: v.paid ? ('completed' as const) : ('pending' as const),
     }
-    if (editing && editing !== 'new') {
-      // Keep the original time of day when only the date changes.
-      await update(editing.id, { ...record, date: `${String(v.date)}${editing.date.slice(10)}` })
-      toast.success('Expense updated')
-    } else {
-      await create({
-        ...record,
-        reference: `EXP-${Date.now().toString().slice(-6)}`,
-        type: 'expense',
-        date: `${String(v.date)}T${new Date().toTimeString().slice(0, 8)}`,
-      })
-      toast.success('Expense recorded')
+    try {
+      if (editing && editing !== 'new') {
+        // Keep the original time of day when only the date changes; status changes go through "Mark as paid".
+        const { status: _status, ...fields } = record
+        await update(editing.id, { ...fields, date: `${String(v.date)}${editing.date.slice(10)}` })
+        toast.success('Expense updated')
+      } else {
+        await create({
+          ...record,
+          reference: '',
+          type: 'expense',
+          date: `${String(v.date)}T${new Date().toTimeString().slice(0, 8)}`,
+        })
+        toast.success('Expense recorded')
+      }
+    } catch {
+      // useResource already showed the server's reason; keep the dialog open.
+      return false
+    }
+  }
+
+  const pay = async (x: Transaction) => {
+    setBusy(true)
+    try {
+      await update(x.id, { status: 'completed' })
+      toast.success('Marked as paid')
+    } catch {
+      // reported by useResource
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const voidExpense = async (x: Transaction) => {
+    setBusy(true)
+    try {
+      await remove(x.id)
+      toast.success('Expense voided')
+    } catch {
+      // reported by useResource
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -203,7 +253,7 @@ export default function ExpensesPage() {
           description: editing.description,
           paid: editing.status === 'completed',
         }
-      : { category: 'Ingredients', payee: '', amount: '', date: TODAY, method: 'cash', branchId: defaultBranch, description: '', paid: true }
+      : { category: categoryOptions[0] ?? 'Other', payee: '', amount: '', date: TODAY, method: 'cash', branchId: defaultBranch, description: '', paid: true }
 
   const alerts = [
     ...overdue.map((r) => ({
@@ -231,7 +281,7 @@ export default function ExpensesPage() {
               <TrophyIcon data-icon="inline-start" />
               {t('nav.itemProfit')}
             </Button>
-            <Button onClick={() => setEditing('new')}>
+            <Button onClick={() => setEditing('new')} disabled={!can('finance', 'create')}>
               <PlusIcon data-icon="inline-start" />
               {t('expenses.add')}
             </Button>
@@ -253,7 +303,7 @@ export default function ExpensesPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard
               label="Spent this month"
-              value={formatCompactCurrency(month.total)}
+              value={month.known ? formatCompactCurrency(month.total) : '—'}
               icon={PiggyBankIcon}
               tone={month.total > budgetTotal ? 'danger' : 'primary'}
               hint={budgetTotal ? `${formatPercent((month.total / budgetTotal) * 100)} of ${formatCompactCurrency(budgetTotal)} budget` : 'No budgets set'}
@@ -274,7 +324,7 @@ export default function ExpensesPage() {
             />
             <StatCard
               label={t('expenses.ratio')}
-              value={formatPercent(period.income ? (period.total / period.income) * 100 : 0)}
+              value={period.known ? formatPercent(period.income ? (period.total / period.income) * 100 : 0) : '—'}
               icon={PercentIcon}
               tone="takeaway"
               hint={`${formatCompactCurrency(period.total)} of ${formatCompactCurrency(period.income)} income, ${PERIOD_LABEL[preset]}`}
@@ -317,6 +367,14 @@ export default function ExpensesPage() {
                 <RepeatIcon />
                 Recurring bills
                 {dueSoon.length > 0 && <Badge className="h-4 min-w-4 px-1 text-[10px]">{dueSoon.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="cash">
+                <BanknoteIcon />
+                Cash registers
+              </TabsTrigger>
+              <TabsTrigger value="categories">
+                <TagsIcon />
+                Categories
               </TabsTrigger>
             </TabsList>
 
@@ -382,7 +440,7 @@ export default function ExpensesPage() {
                     status: x.status,
                   }))
                 }
-                onBulkDelete={(sel) => removeMany(sel.map((s) => s.id))}
+                onBulkDelete={can('finance', 'delete') ? (sel) => removeMany(sel.map((s) => s.id)) : undefined}
                 filters={
                   <>
                     <OptionSelect
@@ -392,7 +450,7 @@ export default function ExpensesPage() {
                       aria-label={t('common.category')}
                       options={[
                         { value: 'all', label: `${t('common.category')}: ${t('common.all')}` },
-                        ...[...new Set([...EXPENSE_CATEGORIES, ...period.breakdown.map((b) => b.name)])].map((c) => ({ value: c, label: c })),
+                        ...[...new Set([...categoryOptions, ...period.breakdown.map((b) => b.name)])].map((c) => ({ value: c, label: c })),
                       ]}
                     />
                     <OptionSelect
@@ -418,6 +476,14 @@ export default function ExpensesPage() {
             <TabsContent value="recurring" className="mt-4">
               <RecurringPanel today={TODAY} defaultBranchId={defaultBranch} />
             </TabsContent>
+
+            <TabsContent value="cash" className="mt-4">
+              <CashPanel />
+            </TabsContent>
+
+            <TabsContent value="categories" className="mt-4">
+              <CategoriesPanel />
+            </TabsContent>
           </Tabs>
         </div>
       )}
@@ -428,7 +494,7 @@ export default function ExpensesPage() {
         title={editing && editing !== 'new' ? 'Edit expense' : t('expenses.add')}
         description="Record a bill or purchase. Unpaid bills stay pending until marked paid."
         fields={[
-          { name: 'category', label: t('common.category'), type: 'select', options: EXPENSE_CATEGORIES.map((c) => ({ value: c, label: c })) },
+          { name: 'category', label: t('common.category'), type: 'select', options: categoryOptions.map((c) => ({ value: c, label: c })) },
           { name: 'payee', label: 'Paid to', placeholder: 'e.g. Metro Cash & Carry' },
           { name: 'amount', label: 'Amount (Rs)', type: 'number', required: true },
           { name: 'date', label: t('common.date'), type: 'date', required: true },
@@ -444,7 +510,8 @@ export default function ExpensesPage() {
           },
           { name: 'branchId', label: t('common.branch'), type: 'select', options: currentTenantBranches.map((b) => ({ value: b.id, label: b.name })) },
           { name: 'description', label: t('common.description'), type: 'textarea', wide: true, placeholder: 'e.g. 20 kg chicken for the weekend' },
-          { name: 'paid', label: 'Already paid', type: 'switch' },
+          // Paying is a separate, confirmed step for an existing expense.
+          ...(editing === 'new' ? [{ name: 'paid', label: 'Already paid', type: 'switch' as const }] : []),
         ]}
         initial={initial}
         onSubmit={save}
@@ -452,12 +519,30 @@ export default function ExpensesPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title={t('common.deleteTitle')}
-        description={t('common.deleteBody')}
-        confirmLabel={t('common.delete')}
-        onConfirm={async () => {
-          if (deleting) await remove(deleting.id)
-          toast.success(t('common.deleted'))
+        title="Void this expense?"
+        description={
+          deleting
+            ? `${formatCurrency(deleting.amount)} · ${deleting.description}. Voiding is permanent and audited${deleting.status === 'completed' && deleting.method === 'cash' ? '; the cash goes back into its register' : ''}.`
+            : ''
+        }
+        confirmLabel="Void expense"
+        onConfirm={() => {
+          if (deleting && !busy) void voidExpense(deleting)
+        }}
+      />
+      <ConfirmDialog
+        open={!!paying}
+        onOpenChange={(o) => !o && setPaying(null)}
+        destructive={false}
+        title="Mark this expense as paid?"
+        description={
+          paying
+            ? `${formatCurrency(paying.amount)} to ${paying.payee || paying.description} by ${paying.method}${paying.method === 'cash' ? ', taken from the branch\'s default cash register' : ''}. A paid expense can no longer be edited.`
+            : ''
+        }
+        confirmLabel="Mark as paid"
+        onConfirm={() => {
+          if (paying && !busy) void pay(paying)
         }}
       />
     </>

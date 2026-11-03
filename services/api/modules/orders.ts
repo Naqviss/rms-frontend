@@ -92,7 +92,7 @@ const typeToService: Record<Exclude<OrderType, 'online'>, CreateOrderDto['servic
 const sourceLabel: Record<OrderResponseDto['source'], string> = { pos: 'POS', website: 'Website', foodpanda: 'Foodpanda', other: 'Other' }
 
 const methodToUi: Record<WireMethod, PaymentMethod> = { cash: 'cash', card: 'card', bank_transfer: 'online', external_platform: 'online', other: 'online' }
-export const methodFromUi: Record<Exclude<PaymentMethod, 'split'>, WireMethod> = { cash: 'cash', card: 'card', online: 'other' }
+export const methodFromUi: Record<Exclude<PaymentMethod, 'split' | 'unknown'>, WireMethod> = { cash: 'cash', card: 'card', online: 'other' }
 
 function channelOf(d: OrderResponseDto): SalesChannel {
   if (d.source === 'foodpanda') return 'foodpanda'
@@ -513,7 +513,7 @@ export async function placeOrder(draft: OrderDraft, keys: CheckoutKeys): Promise
  * Record a captured payment for what the server says is due. The body is frozen into `keys` on the
  * first attempt, so a retry with the same idempotency key is byte-identical (never a second charge).
  */
-export async function payOrder(order: OrderResponseDto, method: Exclude<PaymentMethod, 'split'>, keys: CheckoutKeys) {
+export async function payOrder(order: OrderResponseDto, method: Exclude<PaymentMethod, 'split' | 'unknown'>, keys: CheckoutKeys) {
   if (!keys.payment) {
     if (order.due_minor <= 0) return { order, payment: null }
     keys.payment = {

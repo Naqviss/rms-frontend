@@ -11,9 +11,11 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataTable } from '@/components/common/data-table'
 import { FormDialog, type FormValues } from '@/components/common/form-dialog'
 import { RowActions } from '@/components/common/row-actions'
-import { useRecurringExpenses, useTransactions } from '@/hooks/use-data'
+import { useRecurringExpenses } from '@/hooks/use-data'
+import { useAccess } from '@/hooks/use-access'
+import { useExpenseCategories } from '@/hooks/use-insights'
 import { cn } from '@/lib/utils'
-import { advanceDue, daysUntil, dueLabel, EXPENSE_CATEGORIES, FREQUENCY_LABEL, monthlyEquivalent } from '@/lib/utils/expenses'
+import { daysUntil, dueLabel, EXPENSE_CATEGORIES, FREQUENCY_LABEL, monthlyEquivalent } from '@/lib/utils/expenses'
 import { formatCompactCurrency, formatCurrency, formatDate } from '@/lib/utils/format'
 import { branchName, currentTenantBranches } from '@/lib/directory'
 import type { PaymentMethod, RecurringExpense, RecurringFrequency } from '@/types'
@@ -25,9 +27,16 @@ interface RecurringPanelProps {
 
 export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) {
   const { data, isLoading, create, update, remove } = useRecurringExpenses()
-  const { create: createTransaction } = useTransactions()
+  const { can } = useAccess()
+  const { data: apiCategories } = useExpenseCategories()
   const [editing, setEditing] = useState<RecurringExpense | 'new' | null>(null)
   const [deleting, setDeleting] = useState<RecurringExpense | null>(null)
+  const [toggling, setToggling] = useState<string | null>(null)
+  const canEdit = can('finance', 'edit')
+  const categoryOptions = useMemo(() => {
+    const active = (apiCategories ?? []).filter((c) => c.is_active).map((c) => c.name || c.code)
+    return [...new Set(active.length ? active : EXPENSE_CATEGORIES)]
+  }, [apiCategories])
 
   const rows = useMemo(() => [...(data ?? [])].sort((a, b) => Number(b.active) - Number(a.active) || a.nextDue.localeCompare(b.nextDue)), [data])
   const active = rows.filter((r) => r.active)
@@ -35,23 +44,17 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
   const dueSoon = active.filter((r) => daysUntil(r.nextDue, today) <= 7)
   const overdue = active.filter((r) => daysUntil(r.nextDue, today) < 0)
 
-  const recordPayment = async (r: RecurringExpense) => {
-    await createTransaction({
-      reference: `REC-${Date.now().toString().slice(-6)}`,
-      type: 'expense',
-      category: r.category,
-      description: `${r.name} (${FREQUENCY_LABEL[r.frequency].toLowerCase()})`,
-      payee: r.payee,
-      amount: r.amount,
-      method: r.method,
-      date: `${today}T${new Date().toTimeString().slice(0, 8)}`,
-      branchId: r.branchId,
-      status: 'completed',
-      recurringId: r.id,
-    })
-    const nextDue = advanceDue(r.nextDue, r.frequency)
-    await update(r.id, { nextDue })
-    toast.success(`${r.name} paid · next due ${formatDate(nextDue)}`)
+  const setActive = async (r: RecurringExpense, active: boolean) => {
+    setToggling(r.id)
+    try {
+      // POST /finance/recurring-expenses/{id}/pause | /resume
+      await update(r.id, { active })
+      toast.success(active ? `${r.name} resumed` : `${r.name} paused`)
+    } catch {
+      // reported by useResource
+    } finally {
+      setToggling(null)
+    }
   }
 
   const columns = useMemo<ColumnDef<RecurringExpense, unknown>[]>(
@@ -102,11 +105,9 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
         cell: ({ row }) => (
           <Switch
             checked={row.original.active}
+            disabled={!canEdit || toggling === row.original.id}
             aria-label={`${row.original.active ? 'Pause' : 'Resume'} ${row.original.name}`}
-            onCheckedChange={async (v) => {
-              await update(row.original.id, { active: v })
-              toast.success(v ? `${row.original.name} resumed` : `${row.original.name} paused`)
-            }}
+            onCheckedChange={(v) => setActive(row.original, v)}
           />
         ),
       },
@@ -117,25 +118,20 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1">
-            {row.original.active && daysUntil(row.original.nextDue, today) <= 7 && (
-              <Button size="sm" variant={daysUntil(row.original.nextDue, today) < 0 ? 'default' : 'outline'} onClick={() => recordPayment(row.original)}>
-                Record payment
-              </Button>
+            {canEdit && (
+              <RowActions
+                actions={[
+                  { label: 'Edit', onSelect: () => setEditing(row.original) },
+                  { label: 'End schedule', destructive: true, onSelect: () => setDeleting(row.original) },
+                ]}
+              />
             )}
-            <RowActions
-              actions={[
-                ...(row.original.active && daysUntil(row.original.nextDue, today) > 7 ? [{ label: 'Record payment now', onSelect: () => recordPayment(row.original) }] : []),
-                { label: 'Edit', onSelect: () => setEditing(row.original) },
-                { label: 'Delete', destructive: true, onSelect: () => setDeleting(row.original) },
-              ]}
-            />
           </div>
         ),
       },
     ],
-    // recordPayment closes over the latest data through `update`/`createTransaction`, which are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [today, update],
+    [today, update, canEdit, toggling],
   )
 
   const save = async (v: FormValues) => {
@@ -149,19 +145,24 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
       branchId: String(v.branchId),
       method: String(v.method) as PaymentMethod,
     }
-    if (editing && editing !== 'new') {
-      await update(editing.id, record)
-      toast.success('Recurring bill updated')
-    } else {
-      await create({ ...record, active: true })
-      toast.success('Recurring bill added')
+    try {
+      if (editing && editing !== 'new') {
+        await update(editing.id, record)
+        toast.success('Recurring bill updated')
+      } else {
+        await create({ ...record, active: true })
+        toast.success('Recurring bill added')
+      }
+    } catch {
+      // reported by useResource; keep the dialog open
+      return false
     }
   }
 
   const initial: FormValues =
     editing && editing !== 'new'
       ? { ...editing, active: editing.active }
-      : { name: '', category: 'Utilities', payee: '', amount: '', frequency: 'monthly', nextDue: today, branchId: defaultBranchId, method: 'online' }
+      : { name: '', category: categoryOptions.includes('Utilities') ? 'Utilities' : (categoryOptions[0] ?? 'Other'), payee: '', amount: '', frequency: 'monthly', nextDue: today, branchId: defaultBranchId, method: 'online' }
 
   return (
     <div className="flex flex-col gap-4">
@@ -187,7 +188,7 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
         emptyDescription="Add rent, utilities and other bills that repeat so they are never missed."
         exportRows={(r) => r.map((x) => ({ name: x.name, payee: x.payee, category: x.category, amount: x.amount, frequency: x.frequency, nextDue: x.nextDue, active: x.active }))}
         toolbarActions={
-          <Button size="sm" onClick={() => setEditing('new')}>
+          <Button size="sm" onClick={() => setEditing('new')} disabled={!can('finance', 'create')}>
             <PlusIcon data-icon="inline-start" />
             Add recurring bill
           </Button>
@@ -195,7 +196,7 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
       />
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <RepeatIcon className="size-3.5" aria-hidden />
-        Recording a payment adds it to the expense log and moves the bill to its next due date.
+        Each due bill is generated into the expense log automatically; pay it there. Pausing stops new bills until resumed.
       </p>
 
       <FormDialog
@@ -204,14 +205,15 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
         title={editing && editing !== 'new' ? 'Edit recurring bill' : 'Add recurring bill'}
         fields={[
           { name: 'name', label: 'Bill name', required: true, placeholder: 'e.g. Electricity bill' },
-          { name: 'payee', label: 'Paid to', required: true, placeholder: 'e.g. K-Electric' },
-          { name: 'category', label: 'Category', type: 'select', options: EXPENSE_CATEGORIES.map((c) => ({ value: c, label: c })) },
+          { name: 'payee', label: 'Vendor', placeholder: 'Must match a vendor name' },
+          { name: 'category', label: 'Category', type: 'select', options: categoryOptions.map((c) => ({ value: c, label: c })) },
           { name: 'amount', label: 'Amount (Rs)', type: 'number', required: true },
           {
             name: 'frequency',
             label: 'Repeats',
             type: 'select',
-            options: (Object.keys(FREQUENCY_LABEL) as RecurringFrequency[]).map((f) => ({ value: f, label: FREQUENCY_LABEL[f] })),
+            // The API schedules daily, weekly or monthly; quarterly is not offered.
+            options: (['weekly', 'monthly'] as RecurringFrequency[]).map((f) => ({ value: f, label: FREQUENCY_LABEL[f] })),
           },
           { name: 'nextDue', label: 'Next due date', type: 'date', required: true },
           { name: 'branchId', label: 'Branch', type: 'select', options: currentTenantBranches.map((b) => ({ value: b.id, label: b.name })) },
@@ -232,9 +234,9 @@ export function RecurringPanel({ today, defaultBranchId }: RecurringPanelProps) 
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete this recurring bill?"
-        description="Payments already recorded stay in the expense log."
-        confirmLabel="Delete"
+        title="End this recurring bill?"
+        description="No further bills are generated from today. Bills already generated stay in the expense log."
+        confirmLabel="End schedule"
         onConfirm={async () => {
           if (deleting) await remove(deleting.id)
           toast.success('Recurring bill deleted')
