@@ -1,8 +1,6 @@
 'use client'
 
 import type { ComponentType } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
 import {
   Area,
   AreaChart,
@@ -18,20 +16,14 @@ import {
 import {
   AlertTriangleIcon,
   BanknoteIcon,
-  ArrowRightIcon,
   ClockIcon,
-  CrownIcon,
   ReceiptIcon,
   ShoppingBagIcon,
   TrendingUpIcon,
-  UsersIcon,
   WalletIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { ChartCard } from '@/components/common/chart-card'
 import { StatCard } from '@/components/common/stat-card'
@@ -40,18 +32,13 @@ import { useT } from '@/lib/i18n/use-t'
 import {
   formatCompactCurrency,
   formatCurrency,
-  formatDate,
   formatNumber,
-  formatPercent,
   formatRelative,
   initials,
   titleCase,
 } from '@/lib/utils/format'
-import { cn } from '@/lib/utils'
 import { branchName } from '@/lib/directory'
-import { OptionSelect } from '@/components/common/option-select'
-import { metricValue, rankItems, RANK_METRICS, type RankMetric } from '@/lib/utils/profitability'
-import { useDashboardStore, type WidgetSize } from '@/stores/dashboard-store'
+import type { WidgetId, WidgetSize } from '@/stores/dashboard-store'
 import type { DashboardData } from './use-dashboard-data'
 
 interface WidgetProps {
@@ -60,7 +47,7 @@ interface WidgetProps {
 }
 
 export interface WidgetDefinition {
-  id: string
+  id: WidgetId
   icon: LucideIcon
   sizes: WidgetSize[]
   Component: ComponentType<WidgetProps>
@@ -137,10 +124,6 @@ function ExpensesKpi({ data, title }: WidgetProps) {
 
 function PendingKpi({ data, title }: WidgetProps) {
   return <StatCard label={title} value={data.available.orderStatuses ? formatNumber(data.pending) : NA} icon={ClockIcon} hint={data.available.orderStatuses ? 'Awaiting kitchen or confirmation (today)' : NA_HINT} className="h-full" />
-}
-
-function EmployeesKpi({ data, title }: WidgetProps) {
-  return <StatCard label={title} value={formatNumber(data.activeEmployees)} icon={UsersIcon} hint="Currently on the roster" className="h-full" />
 }
 
 function LowStockKpi({ data, title }: WidgetProps) {
@@ -241,10 +224,6 @@ function Donut({ rows, title, description, unavailable }: { rows: { name: string
   )
 }
 
-function SalesCategory({ data, title }: WidgetProps) {
-  return <Donut rows={data.byCategory.slice(0, 5)} title={title} description="Share of revenue" />
-}
-
 function SalesPayment({ data, title }: WidgetProps) {
   return <Donut rows={data.byPayment} title={title} description="How customers paid" unavailable={!data.available.payments} />
 }
@@ -279,121 +258,6 @@ function BranchPerformance({ data, title }: WidgetProps) {
 
 /* List widgets */
 
-const MEDALS = [
-  { label: '1st', ring: 'ring-amber-400/70', chip: 'bg-amber-400 text-amber-950' },
-  { label: '2nd', ring: 'ring-slate-300', chip: 'bg-slate-300 text-slate-900' },
-  { label: '3rd', ring: 'ring-orange-300/80', chip: 'bg-orange-300 text-orange-950' },
-]
-
-function HeroItems({ data, title }: WidgetProps) {
-  const { items, orders, profit, date } = data.heroItems
-  const metric = useDashboardStore((s) => s.heroMetric)
-  const setMetric = useDashboardStore((s) => s.setHeroMetric)
-  const top = rankItems(items, metric).slice(0, 3)
-  const estimated = top.some((i) => i.costSource === 'menu')
-  return (
-    <ChartCard
-      title={title}
-      description={`${formatDate(date)} · ${formatNumber(orders)} orders · ${formatCompactCurrency(profit)} item profit`}
-      action={
-        <div className="flex items-center gap-1">
-          <OptionSelect
-            className="h-8 w-44 text-xs"
-            value={metric}
-            onValueChange={(v) => setMetric(v as RankMetric)}
-            aria-label="Rank hero items by"
-            options={RANK_METRICS.map((m) => ({ value: m.value, label: m.label }))}
-          />
-          <Button variant="ghost" size="sm" render={<Link href="/finance/item-profit" />} nativeButton={false} aria-label="All items">
-            <span className="hidden @lg/card-header:inline">All items</span>
-            <ArrowRightIcon data-icon="inline-end" className="rtl:rotate-180" />
-          </Button>
-        </div>
-      }
-    >
-      {top.length === 0 ? (
-        <EmptyNote>No sales yet today</EmptyNote>
-      ) : (
-        <div className="@container flex flex-col gap-2">
-          <ol className="grid gap-3 @2xl:grid-cols-3">
-            {top.map((item, i) => {
-              const medal = MEDALS[i]
-              const hero = i === 0
-              const secondary = RANK_METRICS.filter((m) => m.value !== metric).map((m) => metricValue(item, m.value))
-              return (
-                <li
-                  key={item.id}
-                  className={cn(
-                    'relative flex gap-3 rounded-xl border p-3',
-                    hero ? 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card' : 'bg-card',
-                  )}
-                >
-                  <div className={cn('relative size-16 shrink-0 overflow-hidden rounded-lg bg-muted ring-2', medal.ring)}>
-                    <Image src={item.image} alt="" fill className="object-cover" sizes="64px" />
-                    <span className={cn('absolute start-1 top-1 rounded px-1 text-[10px] font-bold leading-4', medal.chip)}>{medal.label}</span>
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <div className="min-w-0">
-                      {hero && (
-                        <Badge className="mb-1 h-5 gap-1 px-1.5 text-[10px]">
-                          <CrownIcon data-icon="inline-start" />
-                          Hero item
-                        </Badge>
-                      )}
-                      <p className="truncate text-sm font-semibold">{item.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {item.category} · {formatCurrency(item.income)} income
-                      </p>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className={cn('text-base font-semibold tabular-nums', metric === 'units' ? 'text-foreground' : 'text-success')}>
-                        {metricValue(item, metric)}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground tabular-nums">{secondary.join(' · ')}</span>
-                    </div>
-                    <Progress value={Math.max(0, Math.min(100, item.margin))} className="h-1.5" aria-label={`Margin ${formatPercent(item.margin)}`} />
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-          {estimated && (
-            <p className="text-[11px] text-muted-foreground">
-              Some items use the menu cost as an estimate.{' '}
-              <Link href="/finance/costing" className="font-medium text-primary underline-offset-2 hover:underline">
-                Add their costing
-              </Link>{' '}
-              for exact profit.
-            </p>
-          )}
-        </div>
-      )}
-    </ChartCard>
-  )
-}
-
-function BestSellers({ data, title }: WidgetProps) {
-  const max = data.bestSellers[0]?.qty ?? 1
-  return (
-    <ChartCard title={title} description="By units sold">
-      {data.bestSellers.length === 0 ? (
-        <EmptyNote>No orders in this range</EmptyNote>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {data.bestSellers.map((p) => (
-            <li key={p.name} className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="truncate font-medium">{p.name}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">{p.qty} sold</span>
-              </div>
-              <Progress value={(p.qty / max) * 100} className="h-1.5" />
-            </li>
-          ))}
-        </ul>
-      )}
-    </ChartCard>
-  )
-}
 
 function RecentTransactions({ data, title }: WidgetProps) {
   return (
@@ -443,55 +307,16 @@ function RecentActivity({ data, title }: WidgetProps) {
   )
 }
 
-function VendorAlerts({ data, title }: WidgetProps) {
-  return (
-    <ChartCard title={title} description="Largest outstanding balances">
-      <ul className="divide-y">
-        {data.vendorAlerts.map((v) => (
-          <ListRow key={v.id}>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{v.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{v.category}</p>
-            </div>
-            <span className="shrink-0 text-sm font-medium tabular-nums">{formatCurrency(v.outstanding)}</span>
-          </ListRow>
-        ))}
-      </ul>
-    </ChartCard>
-  )
-}
-
-function TopCustomers({ data, title }: WidgetProps) {
-  return (
-    <ChartCard title={title} description="By lifetime spend">
-      <ul className="divide-y">
-        {data.topCustomers.map((c) => (
-          <ListRow key={c.id}>
-            <div className="flex min-w-0 items-center gap-3">
-              <Avatar className="size-8">
-                <AvatarFallback className="text-xs">{initials(c.name)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{c.name}</p>
-                <p className="text-xs text-muted-foreground">{c.totalOrders} orders</p>
-              </div>
-            </div>
-            <span className="shrink-0 text-sm font-medium tabular-nums">{formatCurrency(c.totalSpent)}</span>
-          </ListRow>
-        ))}
-      </ul>
-    </ChartCard>
-  )
-}
-
 function InventoryAlerts({ data, title }: WidgetProps) {
   return (
-    <ChartCard title={title} description="Items that need attention">
-      {data.inventoryAlerts.length === 0 ? (
+    <ChartCard title={title} description="Below their reorder level today">
+      {!data.available.lowStock ? (
+        <EmptyNote>Stock alerts not available</EmptyNote>
+      ) : data.inventoryAlerts.length === 0 ? (
         <EmptyNote>Stock levels look healthy</EmptyNote>
       ) : (
         <ul className="divide-y">
-          {data.inventoryAlerts.map(({ item, status }) => (
+          {data.inventoryAlerts.map((item) => (
             <ListRow key={item.id}>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{item.name}</p>
@@ -499,34 +324,11 @@ function InventoryAlerts({ data, title }: WidgetProps) {
                   {item.quantity} {item.unit} left · {branchName(item.branchId)}
                 </p>
               </div>
-              <StatusBadge status={status} />
+              <StatusBadge status={item.status} />
             </ListRow>
           ))}
         </ul>
       )}
-    </ChartCard>
-  )
-}
-
-function EmployeePerformance({ data, title }: WidgetProps) {
-  return (
-    <ChartCard title={title} description="Top performers by score">
-      <ul className="divide-y">
-        {data.topEmployees.map((e) => (
-          <ListRow key={e.id}>
-            <div className="flex min-w-0 items-center gap-3">
-              <Avatar className="size-8">
-                <AvatarFallback className="text-xs">{initials(e.name)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{e.name}</p>
-                <p className="text-xs capitalize text-muted-foreground">{titleCase(e.role)}</p>
-              </div>
-            </div>
-            <span className="shrink-0 text-sm font-medium tabular-nums">{e.performance}%</span>
-          </ListRow>
-        ))}
-      </ul>
     </ChartCard>
   )
 }
@@ -541,21 +343,14 @@ export const widgetRegistry: WidgetDefinition[] = [
   { id: 'profit', icon: TrendingUpIcon, sizes: KPI_SIZES, Component: ProfitKpi },
   { id: 'expenses', icon: WalletIcon, sizes: KPI_SIZES, Component: ExpensesKpi },
   { id: 'pending', icon: ClockIcon, sizes: KPI_SIZES, Component: PendingKpi },
-  { id: 'employees', icon: UsersIcon, sizes: KPI_SIZES, Component: EmployeesKpi },
   { id: 'lowstock', icon: AlertTriangleIcon, sizes: KPI_SIZES, Component: LowStockKpi },
   { id: 'revenueTrend', icon: TrendingUpIcon, sizes: CHART_SIZES, Component: RevenueTrend },
   { id: 'orderTrend', icon: ShoppingBagIcon, sizes: CHART_SIZES, Component: OrderTrend },
-  { id: 'heroItems', icon: CrownIcon, sizes: CHART_SIZES, Component: HeroItems },
-  { id: 'bestSellers', icon: ShoppingBagIcon, sizes: CHART_SIZES, Component: BestSellers },
-  { id: 'salesCategory', icon: ReceiptIcon, sizes: CHART_SIZES, Component: SalesCategory },
   { id: 'salesPayment', icon: WalletIcon, sizes: CHART_SIZES, Component: SalesPayment },
   { id: 'branchPerformance', icon: TrendingUpIcon, sizes: CHART_SIZES, Component: BranchPerformance },
   { id: 'recentTransactions', icon: BanknoteIcon, sizes: CHART_SIZES, Component: RecentTransactions },
   { id: 'recentActivity', icon: ClockIcon, sizes: CHART_SIZES, Component: RecentActivity },
-  { id: 'vendorAlerts', icon: AlertTriangleIcon, sizes: CHART_SIZES, Component: VendorAlerts },
-  { id: 'topCustomers', icon: UsersIcon, sizes: CHART_SIZES, Component: TopCustomers },
   { id: 'inventoryAlerts', icon: AlertTriangleIcon, sizes: CHART_SIZES, Component: InventoryAlerts },
-  { id: 'employeePerformance', icon: UsersIcon, sizes: CHART_SIZES, Component: EmployeePerformance },
 ]
 
 export const widgetById = Object.fromEntries(widgetRegistry.map((w) => [w.id, w])) as Record<string, WidgetDefinition>

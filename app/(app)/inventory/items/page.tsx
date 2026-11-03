@@ -15,7 +15,7 @@ import { StatusBadge } from '@/components/common/status-badge'
 import { useInventory, useStockMovements, useVendors } from '@/hooks/use-data'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
-import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { formatCurrency } from '@/lib/utils/format'
 import { stockStatus, stockValue } from '@/lib/utils/inventory'
 import { branchName } from '@/lib/directory'
 import type { InventoryItem } from '@/types'
@@ -40,14 +40,11 @@ export default function StockItemsPage() {
   const itemFields: FieldDef[] = [
     { name: 'name', label: t('common.name'), required: true, wide: true },
     { name: 'sku', label: 'SKU', required: true },
-    // The RMS API stores no stock category, so it is optional.
-    { name: 'category', label: t('common.category') },
     { name: 'quantity', label: t('common.quantity'), type: 'number', required: true },
     { name: 'unit', label: t('inventory.unit'), required: true },
     { name: 'minStock', label: t('inventory.minStock'), type: 'number', required: true },
     { name: 'costPerUnit', label: t('inventory.costPerUnit'), type: 'number', required: true },
     { name: 'vendorId', label: t('inventory.supplier'), type: 'select', options: (vendors ?? []).map((v) => ({ value: v.id, label: v.name })) },
-    { name: 'expiryDate', label: t('inventory.expiry'), type: 'date' },
   ]
 
   const columns = useMemo<ColumnDef<InventoryItem, unknown>[]>(
@@ -62,7 +59,6 @@ export default function StockItemsPage() {
           </div>
         ),
       },
-      { accessorKey: 'category', header: t('common.category') },
       { accessorKey: 'branchId', header: t('common.branch'), cell: ({ row }) => branchName(row.original.branchId) },
       {
         accessorKey: 'quantity',
@@ -79,11 +75,6 @@ export default function StockItemsPage() {
         header: t('inventory.stockValue'),
         accessorFn: (r) => stockValue(r),
         cell: ({ row }) => <span className="tabular-nums">{formatCurrency(stockValue(row.original))}</span>,
-      },
-      {
-        accessorKey: 'expiryDate',
-        header: t('inventory.expiry'),
-        cell: ({ row }) => (row.original.expiryDate ? formatDate(row.original.expiryDate) : '-'),
       },
       {
         id: 'status',
@@ -115,38 +106,29 @@ export default function StockItemsPage() {
       ? {
           name: mode.item.name,
           sku: mode.item.sku,
-          category: mode.item.category,
           quantity: mode.item.quantity,
           unit: mode.item.unit,
           minStock: mode.item.minStock,
           costPerUnit: mode.item.costPerUnit,
           vendorId: mode.item.vendorId,
-          expiryDate: mode.item.expiryDate ?? '',
         }
-      : { name: '', sku: '', category: '', quantity: 0, unit: 'kg', minStock: 0, costPerUnit: 0, vendorId: vendors?.[0]?.id ?? '', expiryDate: '' }
+      : { name: '', sku: '', quantity: 0, unit: 'kg', minStock: 0, costPerUnit: 0, vendorId: vendors?.[0]?.id ?? '' }
 
   const saveItem = async (v: FormValues) => {
     const patch = {
       name: String(v.name),
       sku: String(v.sku),
-      category: String(v.category),
       quantity: Number(v.quantity),
       unit: String(v.unit),
       minStock: Number(v.minStock),
       costPerUnit: Number(v.costPerUnit),
       vendorId: String(v.vendorId),
-      expiryDate: v.expiryDate ? String(v.expiryDate) : null,
     }
     if (mode?.kind === 'edit') {
       await update(mode.item.id, patch)
       toast.success(t('common.updated'))
     } else {
-      await create({
-        ...patch,
-        branchId: primaryBranch,
-        kind: 'ingredient',
-        image: '/food/desi.jpg',
-      })
+      await create({ ...patch, branchId: primaryBranch })
       toast.success(t('common.created'))
     }
   }
@@ -166,7 +148,6 @@ export default function StockItemsPage() {
       branchId: mode.item.branchId,
       date: new Date().toISOString().slice(0, 19),
       note: String(v.note ?? ''),
-      by: 'Imran Qureshi',
     })
     await mutate()
     toast.success(t('common.updated'))
@@ -189,7 +170,7 @@ export default function StockItemsPage() {
         data={rows}
         isLoading={isLoading}
         exportName="stock-items"
-        exportRows={(r) => r.map((i) => ({ name: i.name, sku: i.sku, category: i.category, quantity: i.quantity, unit: i.unit, value: stockValue(i) }))}
+        exportRows={(r) => r.map((i) => ({ name: i.name, sku: i.sku, quantity: i.quantity, unit: i.unit, value: stockValue(i) }))}
         onBulkDelete={(sel) => removeMany(sel.map((s) => s.id))}
         initialHidden={{ minStock: false }}
         filters={
@@ -198,7 +179,7 @@ export default function StockItemsPage() {
             value={statusFilter}
             onValueChange={setStatusFilter}
             aria-label={t('common.status')}
-            options={[{ value: 'all', label: `${t('common.status')}: ${t('common.all')}` }, ...(['in-stock', 'low', 'expiring', 'out'] as const).map((s) => ({ value: s, label: td(`status.${s}`) }))]}
+            options={[{ value: 'all', label: `${t('common.status')}: ${t('common.all')}` }, ...(['in-stock', 'low', 'out'] as const).map((s) => ({ value: s, label: td(`status.${s}`) }))]}
           />
         }
       />

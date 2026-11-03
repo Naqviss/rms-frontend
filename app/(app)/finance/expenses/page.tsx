@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
-import { AlertTriangleIcon, BanknoteIcon, CalendarClockIcon, ClockIcon, PercentIcon, PiggyBankIcon, PlusIcon, ReceiptTextIcon, RepeatIcon, TagsIcon, TrophyIcon, WalletIcon } from 'lucide-react'
+import { AlertTriangleIcon, BanknoteIcon, CalendarClockIcon, ClockIcon, PercentIcon, PlusIcon, ReceiptTextIcon, RepeatIcon, TagsIcon, TrophyIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -19,37 +19,33 @@ import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
 import { StatCard } from '@/components/common/stat-card'
 import { StatusBadge } from '@/components/common/status-badge'
-import { BudgetsPanel } from '@/components/expenses/budgets-panel'
 import { RecurringPanel } from '@/components/expenses/recurring-panel'
 import { CashPanel } from '@/components/expenses/cash-panel'
 import { CategoriesPanel } from '@/components/expenses/categories-panel'
-import { useBudgets, useRecurringExpenses, useTransactions } from '@/hooks/use-data'
+import { useRecurringExpenses, useTransactions } from '@/hooks/use-data'
 import { useAccess } from '@/hooks/use-access'
-import { presetWindow, sumMinor, todayIso, useExpenseCategories, useExpenseSummary, useInsightsReport } from '@/hooks/use-insights'
+import { presetWindow, sumMinor, todayIso, useExpenseCategories, useInsightsReport } from '@/hooks/use-insights'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
-import { budgetState, daysUntil, EXPENSE_CATEGORIES, monthProgress } from '@/lib/utils/expenses'
+import { daysUntil, EXPENSE_CATEGORIES } from '@/lib/utils/expenses'
 import { formatCompactCurrency, formatCurrency, formatDateTime, formatPercent } from '@/lib/utils/format'
 import { branchName, currentTenantBranches } from '@/lib/directory'
 import type { Transaction } from '@/types'
 
 const PERIOD_LABEL: Record<string, string> = { today: 'today', '7d': 'the last 7 days', '30d': 'the last 30 days', month: 'this month' }
 
-type Tab = 'log' | 'budgets' | 'recurring' | 'cash' | 'categories'
+type Tab = 'log' | 'recurring' | 'cash' | 'categories'
 
 export default function ExpensesPage() {
   const { t } = useT()
   const { data: txData, isLoading, create, update, remove, removeMany } = useTransactions()
-  const { data: budgets } = useBudgets()
   const { data: recurring } = useRecurringExpenses()
   const { inBranch, preset, branchIds, allBranches, primaryBranch } = useScope()
   const { can } = useAccess()
   const TODAY = todayIso()
   const window = useMemo(() => presetWindow(preset, TODAY), [preset, TODAY])
-  const monthWindow = useMemo(() => presetWindow('month', TODAY), [TODAY])
-  // Server totals: this month's spend (expense summary) and the period's sales for the ratio.
-  const monthSummary = useExpenseSummary('month', monthWindow)
+  // Server totals: the period's expenses and sales for the ratio.
   const periodExpenses = useInsightsReport('expenses', window)
   const periodSales = useInsightsReport('sales', window)
   const { data: apiCategories } = useExpenseCategories()
@@ -100,23 +96,12 @@ export default function ExpensesPage() {
     }
   }, [periodTx, periodExpenses.data, periodSales.data, periodSales.currency])
 
-  // Budgets and pending bills are about the calendar month and the whole ledger, not the top-bar range.
+  // Pending bills are about the whole ledger, not the top-bar range.
   const month = useMemo(() => {
-    const { start } = monthProgress(TODAY)
-    const spend = new Map<string, number>()
-    let total = 0
-    for (const x of branchTx) {
-      if (x.type !== 'expense' || x.date.slice(0, 10) < start) continue
-      total += x.amount
-      spend.set(x.category, (spend.get(x.category) ?? 0) + x.amount)
-    }
     const pending = branchTx.filter((x) => x.type === 'expense' && x.status === 'pending')
-    const serverTotal = monthSummary.data ? sumMinor(monthSummary.data.totals, (r) => r.total_minor, monthSummary.currency) : null
-    return { spend, total: serverTotal ?? total, known: serverTotal !== null, pending, pendingTotal: pending.reduce((s, x) => s + x.amount, 0) }
-  }, [branchTx, TODAY, monthSummary.data, monthSummary.currency])
+    return { pending, pendingTotal: pending.reduce((s, x) => s + x.amount, 0) }
+  }, [branchTx])
 
-  const budgetTotal = (budgets ?? []).reduce((s, b) => s + b.monthly, 0)
-  const overBudget = (budgets ?? []).filter((b) => budgetState(month.spend.get(b.category) ?? 0, b.monthly) === 'over')
   const activeRecurring = (recurring ?? []).filter((r) => r.active && (allBranches || branchIds.includes(r.branchId)))
   const dueSoon = activeRecurring.filter((r) => daysUntil(r.nextDue, TODAY) <= 7)
   const overdue = activeRecurring.filter((r) => daysUntil(r.nextDue, TODAY) < 0)
@@ -262,12 +247,6 @@ export default function ExpensesPage() {
       body: `${formatCurrency(r.amount)} to ${r.payee} was due ${-daysUntil(r.nextDue, TODAY)} day(s) ago.`,
       tab: 'recurring' as Tab,
     })),
-    ...overBudget.map((b) => ({
-      key: b.id,
-      title: `${b.category} is over budget`,
-      body: `${formatCurrency(month.spend.get(b.category) ?? 0)} spent of ${formatCurrency(b.monthly)} this month.`,
-      tab: 'budgets' as Tab,
-    })),
   ]
 
   return (
@@ -291,8 +270,8 @@ export default function ExpensesPage() {
 
       {isLoading ? (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {Array.from({ length: 4 }, (_, i) => (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+            {Array.from({ length: 3 }, (_, i) => (
               <Skeleton key={i} className="h-28" />
             ))}
           </div>
@@ -300,14 +279,7 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Spent this month"
-              value={month.known ? formatCompactCurrency(month.total) : '—'}
-              icon={PiggyBankIcon}
-              tone={month.total > budgetTotal ? 'danger' : 'primary'}
-              hint={budgetTotal ? `${formatPercent((month.total / budgetTotal) * 100)} of ${formatCompactCurrency(budgetTotal)} budget` : 'No budgets set'}
-            />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
             <StatCard
               label={t('expenses.pending')}
               value={formatCompactCurrency(month.pendingTotal)}
@@ -353,15 +325,6 @@ export default function ExpensesPage() {
               <TabsTrigger value="log">
                 <ReceiptTextIcon />
                 {t('expenses.log')}
-              </TabsTrigger>
-              <TabsTrigger value="budgets">
-                <WalletIcon />
-                Budgets
-                {overBudget.length > 0 && (
-                  <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]">
-                    {overBudget.length}
-                  </Badge>
-                )}
               </TabsTrigger>
               <TabsTrigger value="recurring">
                 <RepeatIcon />
@@ -467,10 +430,6 @@ export default function ExpensesPage() {
                   </>
                 }
               />
-            </TabsContent>
-
-            <TabsContent value="budgets" className="mt-4">
-              <BudgetsPanel monthSpend={month.spend} today={TODAY} />
             </TabsContent>
 
             <TabsContent value="recurring" className="mt-4">

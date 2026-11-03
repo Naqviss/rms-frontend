@@ -6,9 +6,7 @@
  * the shift from today's shift assignment (`GET /api/staff/shift-assignments?active_on=` +
  * `GET /api/staff/shifts`). Changing pay adds a new compensation row effective today.
  *
- * UI fields the API has no source for get neutral values: commission (none / 0),
- * attendanceRate, performance and ordersHandled (0). Role is derived from the free-text
- * designation. The API has no DELETE: "remove" terminates the employee (leaving date today)
+ * Role is derived from the free-text designation. The API has no DELETE: "remove" terminates the employee (leaving date today)
  * and terminated employees are not listed.
  */
 import { api } from '@/services/api/client'
@@ -95,13 +93,8 @@ const toUi = ({ employee: e, compensation, shift }: EmployeeRow): Employee => {
     email: e.email ?? '',
     joinedAt: e.joining_date,
     ...payOf(compensation),
-    commissionType: 'none',
-    commissionRate: 0,
     status: e.status === 'active' ? 'active' : 'inactive',
     shift: shiftBucket(shift),
-    attendanceRate: 0,
-    performance: 0,
-    ordersHandled: 0,
     color: colorFor(e.id),
   }
 }
@@ -146,9 +139,6 @@ function validate(input: Partial<Employee>, current?: Employee) {
   const changed = <K extends keyof Employee>(k: K) => input[k] !== undefined && input[k] !== current?.[k]
   if (input.status === 'on-leave' && changed('status')) throw new UnsupportedOperationError('Employees', 'on-leave status (use attendance leave instead)')
   if (input.payType === 'hourly' && changed('payType')) throw new UnsupportedOperationError('Employees', 'hourly pay')
-  if ((input.commissionType && input.commissionType !== 'none' && changed('commissionType')) || (input.commissionRate && changed('commissionRate'))) {
-    throw new UnsupportedOperationError('Employees', 'commission')
-  }
   if (current && changed('shift')) throw new UnsupportedOperationError('Employees', 'changing the shift here (assign shifts in the staff schedule)')
 }
 

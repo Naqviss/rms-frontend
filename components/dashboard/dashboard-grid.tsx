@@ -20,7 +20,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { PageHeader } from '@/components/common/page-header'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
-import { useDashboardStore, type WidgetInstance, type WidgetSize } from '@/stores/dashboard-store'
+import { useDashboardStore, type WidgetId, type WidgetInstance, type WidgetSize } from '@/stores/dashboard-store'
 import { useDashboardData } from './use-dashboard-data'
 import { widgetById, widgetRegistry } from './widgets'
 
@@ -63,7 +63,7 @@ export function DashboardGrid() {
     setLayout(items.map((x, i) => (i === index ? { ...x, size: next } : x)))
   }
 
-  const addWidget = (id: string) => {
+  const addWidget = (id: WidgetId) => {
     const def = widgetById[id]
     const entry: WidgetInstance = { id, size: def.sizes[0] === 'sm' ? 'sm' : 'md' }
     setLayout([...items, entry])

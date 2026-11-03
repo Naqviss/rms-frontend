@@ -5,7 +5,6 @@ import Image from 'next/image'
 import type { ColumnDef } from '@tanstack/react-table'
 import { PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -21,13 +20,7 @@ import { useCategories, useMenuGroups, useProducts, useTaxRates } from '@/hooks/
 import { useT } from '@/lib/i18n/use-t'
 import { formatCurrency } from '@/lib/utils/format'
 import { productPriceSplit, productTaxRate } from '@/lib/utils/tax'
-import { currentBranchIds } from '@/lib/directory'
-import type { Product, TaxRate } from '@/types'
-
-const netMargin = (p: Product, rates: TaxRate[]) => {
-  const { net } = productPriceSplit(p, rates)
-  return net ? Math.round(((net - p.costPrice) / net) * 100) : 0
-}
+import type { Product } from '@/types'
 
 export default function MenuPage() {
   const { t } = useT()
@@ -49,7 +42,6 @@ export default function MenuPage() {
     { name: 'sku', label: 'SKU', required: true },
     { name: 'categoryId', label: t('common.category'), type: 'select', required: true, options: (categories ?? []).map((c) => ({ value: c.id, label: c.name })) },
     { name: 'basePrice', label: t('menu.price'), type: 'number', required: true },
-    { name: 'costPrice', label: t('menu.cost'), type: 'number', required: true },
     {
       name: 'taxRateId',
       label: t('common.tax'),
@@ -64,7 +56,6 @@ export default function MenuPage() {
     },
     { name: 'description', label: t('common.description'), type: 'textarea', wide: true },
     { name: 'available', label: t('menu.available'), type: 'switch' },
-    { name: 'featured', label: t('menu.featured'), type: 'switch' },
   ]
 
   const columns = useMemo<ColumnDef<Product, unknown>[]>(
@@ -102,14 +93,6 @@ export default function MenuPage() {
         },
       },
       {
-        id: 'margin',
-        header: t('menu.margin'),
-        // Margin on what the business keeps, so tax inside the price does not inflate it.
-        // The cell recomputes rather than reading the cached accessor value, since tax rates may load after products.
-        accessorFn: (r) => netMargin(r, rates),
-        cell: ({ row }) => <span className="tabular-nums">{netMargin(row.original, rates)}%</span>,
-      },
-      {
         id: 'options',
         header: t('menu.options'),
         enableSorting: false,
@@ -125,20 +108,6 @@ export default function MenuPage() {
           >
             {row.original.optionGroups.length ? row.original.optionGroups.map((g) => g.name).join(' · ') : t('menu.addOptions')}
           </Button>
-        ),
-      },
-      {
-        id: 'dietary',
-        header: t('menu.dietary'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            {row.original.dietary.map((d) => (
-              <Badge key={d} variant="outline" className="capitalize">
-                {d}
-              </Badge>
-            ))}
-          </div>
         ),
       },
       {
@@ -181,22 +150,18 @@ export default function MenuPage() {
           sku: editing.sku,
           categoryId: editing.categoryId,
           basePrice: editing.basePrice,
-          costPrice: editing.costPrice,
           taxRateId: editing.taxRateId ?? 'none',
           description: editing.description,
           available: editing.available,
-          featured: editing.featured,
         }
       : {
           name: '',
           sku: '',
           categoryId: categories?.[0]?.id ?? '',
           basePrice: 0,
-          costPrice: 0,
           taxRateId: rates.find((r) => r.active)?.id ?? 'none',
           description: '',
           available: true,
-          featured: false,
         }
 
   const save = async (v: FormValues) => {
@@ -205,11 +170,9 @@ export default function MenuPage() {
       sku: String(v.sku),
       categoryId: String(v.categoryId),
       basePrice: Number(v.basePrice),
-      costPrice: Number(v.costPrice),
       taxRateId: v.taxRateId === 'none' ? null : String(v.taxRateId),
       description: String(v.description),
       available: !!v.available,
-      featured: !!v.featured,
     }
     if (editing && editing !== 'new') {
       await update(editing.id, patch)
@@ -219,12 +182,8 @@ export default function MenuPage() {
       await create({
         ...patch,
         image: cat?.image ?? '/food/burgers.jpg',
-        dietary: [],
         optionGroups: [],
-        ingredients: [],
-        branchIds: currentBranchIds,
         menuId: groups?.[0]?.id ?? '',
-        schedule: 'all-day',
       })
       toast.success(t('common.created'))
     }
@@ -254,7 +213,7 @@ export default function MenuPage() {
             data={rows}
             isLoading={isLoading}
             exportName="menu"
-            exportRows={(r) => r.map((p) => ({ name: p.name, sku: p.sku, category: catName(p.categoryId), price: p.basePrice, cost: p.costPrice, available: p.available }))}
+            exportRows={(r) => r.map((p) => ({ name: p.name, sku: p.sku, category: catName(p.categoryId), price: p.basePrice, available: p.available }))}
             onBulkDelete={(sel) => removeMany(sel.map((s) => s.id))}
             filters={
               <OptionSelect

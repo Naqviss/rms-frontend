@@ -6,11 +6,10 @@ import { persist } from 'zustand/middleware'
 import { config } from '@/lib/config'
 import { currentBranchIds } from '@/lib/directory'
 import { useAppStore } from '@/stores/app-store'
-import { useRecipeVault } from '@/stores/recipe-vault-store'
 import { signInWithAccessToken, signInWithPassword, signOut } from '@/services/api/auth'
 import { bootstrapSession, clearSession, useSession } from '@/services/api/session'
 import { homeFor, roleIdOf } from '@/services/api/permissions'
-import { colorFor, stamp } from '@/services/api/mappers'
+import { colorFor } from '@/services/api/mappers'
 import type { AppUser, RoleId } from '@/types'
 
 /** The signed-in identity as the shell sees it. */
@@ -53,7 +52,6 @@ export const useAuthStore = create<AuthState>()(
         await finishLogin(session.email, set)
       },
       logout: () => {
-        useRecipeVault.getState().lock()
         void signOut()
         clearSession()
         set({ username: null, signedInAt: null })
@@ -88,7 +86,6 @@ export function useAccount() {
     role,
     branchIds,
     status: 'active',
-    lastActive: stamp(new Date().toISOString()),
     color: colorFor(me?.user_id ?? username ?? 'x'),
   }
   return { account, user, owner, home: account?.home ?? '/dashboard', isPlatformAdmin: Boolean(me?.is_platform_admin) }

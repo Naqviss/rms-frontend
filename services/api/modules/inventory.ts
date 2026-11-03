@@ -10,13 +10,9 @@
  *  - `minStock` ↔ the branch reorder level (what the server's `is_low` uses).
  *  - Name, SKU and unit cost are item-wide: editing them on one branch row changes every branch.
  *    The base unit is immutable. "remove" deactivates the item for every branch (no DELETE).
- *  - Category, expiry date, kind and image have no backend field.
- *  - Recipes: sale links (menu item → inventory used per unit sold) can only be listed per menu
- *    item and carry no extras, wastage, notes or free-text ingredients, so they cannot back the
- *    costing sheet; `recipes` and `recipeAccess` stay unavailable.
  */
 import { api, operationId } from '@/services/api/client'
-import { acrossBranches, apiRepository, primaryBranchId, unavailableRepository, UnsupportedOperationError } from '@/services/api/adapter'
+import { acrossBranches, apiRepository, primaryBranchId, UnsupportedOperationError } from '@/services/api/adapter'
 import { compact, fromMinor, localized, stamp, text, toMinor } from '@/services/api/mappers'
 import { linkSupplier, supplierByItem, unlinkSupplier } from '@/services/api/modules/vendors'
 import type {
@@ -29,7 +25,7 @@ import type {
   StockLevelsDto,
   UpdateInventoryItemDto,
 } from '@/services/api/generated/schemas'
-import type { InventoryItem, MovementType, Recipe, RecipeAccessEvent, StockMovement } from '@/types'
+import type { InventoryItem, MovementType, StockMovement } from '@/types'
 
 const tenantWide = { branchId: null } as const
 
@@ -75,19 +71,15 @@ const rowToUi = (r: StockRow): InventoryItem => ({
   id: rowId(r.item.id, r.branchId),
   name: itemName(r.item),
   sku: r.item.sku ?? '',
-  category: '',
   quantity: num(r.quantity),
   unit: r.item.base_unit,
   minStock: num(r.reorderLevel ?? r.item.default_reorder_level),
   costPerUnit: fromMinor(r.item.unit_cost_minor),
   branchId: r.branchId,
   vendorId: r.vendorId,
-  expiryDate: null,
-  kind: 'ingredient',
-  image: '',
 })
 
-const INVENTORY_LOCAL: (keyof InventoryItem)[] = ['category', 'expiryDate', 'kind', 'image', 'unit']
+const INVENTORY_LOCAL: (keyof InventoryItem)[] = ['unit']
 
 /** Opening stock if the branch has no balance yet, otherwise an adjustment by `delta`. Returns the new balance. */
 async function moveStock(
@@ -258,8 +250,6 @@ const movementToUi = (m: MovementRow): StockMovement => ({
   branchId: m.branch_id,
   date: stamp(m.occurred_at),
   note: m.reason_code ?? '',
-  // `created_by` is a user id; there is no user directory to resolve it to a name here.
-  by: '',
 })
 
 /** Every item including inactive ones, so old ledger lines still show a name. */
@@ -298,6 +288,3 @@ export const stockMovements = apiRepository<StockMovement, MovementRow>({
     return { ...m, branch_id: branchId, item: cached?.dto.item }
   },
 })
-
-export const recipes = unavailableRepository<Recipe>('Recipes')
-export const recipeAccess = unavailableRepository<RecipeAccessEvent>('Recipe access log')

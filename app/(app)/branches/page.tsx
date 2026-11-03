@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { ClockIcon, MapPinIcon, PhoneIcon, PlusIcon, UsersIcon } from 'lucide-react'
+import { MapPinIcon, PhoneIcon, PlusIcon, UsersIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { FormDialog, type FormValues } from '@/components/common/form-dialog'
@@ -50,8 +50,7 @@ export default function BranchesPage() {
       await update(editing.id, patch)
       toast.success(t('common.updated'))
     } else {
-      // email, manager, hours and seats have no backend field.
-      await create({ ...patch, tenantId: currentTenantBranches[0]?.tenantId ?? directory.tenantId, email: '', manager: '', opensAt: '', closesAt: '', seats: 0 })
+      await create({ ...patch, tenantId: currentTenantBranches[0]?.tenantId ?? directory.tenantId })
       toast.success(t('common.created'))
     }
   }
@@ -84,7 +83,6 @@ export default function BranchesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <CardTitle className="text-base">{b.name}</CardTitle>
-                      <CardDescription>{b.manager}</CardDescription>
                     </div>
                     <div className="flex items-center gap-1">
                       <StatusBadge status={b.status} />
@@ -113,22 +111,11 @@ export default function BranchesPage() {
                     <PhoneIcon className="size-4 shrink-0" aria-hidden />
                     {b.phone}
                   </p>
-                  {b.opensAt && (
-                    <p className="flex items-center gap-2">
-                      <ClockIcon className="size-4 shrink-0" aria-hidden />
-                      {b.opensAt} - {b.closesAt}
-                    </p>
-                  )}
                   <div className="mt-2 flex gap-2">
                     <Badge variant="secondary">
                       <UsersIcon data-icon="inline-start" />
                       {staff} {t('nav.employees').toLowerCase()}
                     </Badge>
-                    {b.seats > 0 && (
-                      <Badge variant="outline">
-                        {b.seats} {t('branches.seats')}
-                      </Badge>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -140,7 +127,6 @@ export default function BranchesPage() {
         open={editing !== null}
         onOpenChange={(o) => !o && setEditing(null)}
         title={editing === 'new' ? t('branches.add') : t('common.edit')}
-        // Only fields the RMS API stores (no e-mail, manager, hours or seats on a branch).
         fields={[
           { name: 'name', label: t('common.name'), required: true, wide: true },
           { name: 'city', label: t('customers.city'), required: true },

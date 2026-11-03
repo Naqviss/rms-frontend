@@ -6,7 +6,6 @@ import { PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataTable } from '@/components/common/data-table'
 import { FormDialog, type FieldDef, type FormValues } from '@/components/common/form-dialog'
@@ -59,7 +58,7 @@ export default function EmployeesPage() {
           { name: 'payRate', label: t('employees.payRate'), type: 'number', required: true },
         ] satisfies FieldDef[])
       : []),
-    // Commission is not modelled by the API; shifts are assigned on the attendance screen.
+    // Shifts are assigned on the attendance screen.
     {
       name: 'status',
       label: t('common.status'),
@@ -94,16 +93,6 @@ export default function EmployeesPage() {
       { accessorKey: 'branchId', header: t('common.branch'), cell: ({ row }) => branchName(row.original.branchId) },
       { accessorKey: 'shift', header: t('employees.shift'), cell: ({ row }) => <span className="capitalize">{row.original.shift}</span> },
       { accessorKey: 'joinedAt', header: t('employees.joined'), cell: ({ row }) => formatDate(row.original.joinedAt) },
-      {
-        accessorKey: 'performance',
-        header: t('employees.performance'),
-        cell: ({ row }) => (
-          <div className="flex w-28 items-center gap-2">
-            <Progress value={row.original.performance} className="h-1.5" aria-label={t('employees.performance')} />
-            <span className="text-xs tabular-nums text-muted-foreground">{row.original.performance}</span>
-          </div>
-        ),
-      },
       { accessorKey: 'status', header: t('common.status'), cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       {
         id: 'actions',
@@ -133,8 +122,6 @@ export default function EmployeesPage() {
           email: editing.email,
           payType: editing.payType,
           payRate: editing.payRate,
-          commissionType: editing.commissionType,
-          commissionRate: editing.commissionRate,
           shift: editing.shift,
           status: editing.status,
         }
@@ -146,8 +133,6 @@ export default function EmployeesPage() {
           email: '',
           payType: 'monthly',
           payRate: 0,
-          commissionType: 'none',
-          commissionRate: 0,
           shift: 'morning',
           status: 'active',
         }
@@ -173,12 +158,7 @@ export default function EmployeesPage() {
           ...patch,
           code: `EMP-${String((data?.length ?? 0) + 1).padStart(3, '0')}`,
           joinedAt: new Date().toISOString().slice(0, 10),
-          commissionType: 'none',
-          commissionRate: 0,
           shift: 'morning',
-          attendanceRate: 0,
-          performance: 0,
-          ordersHandled: 0,
           color: '',
         })
         toast.success(t('common.created'))

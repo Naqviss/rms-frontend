@@ -90,13 +90,12 @@ export function usePublicPages(tenantId: string | null) {
   return useSWR(tenantId ? `public-pages:${tenantId}` : null, () => p.listPublicPages(tenantId!), opts)
 }
 
-/** Real menu items for the website preview/storefront: available products, featured first (max 12). */
+/** Real menu items for the website preview/storefront: available products in API order (max 12). */
 export function useSiteItems(): SiteItem[] {
   const { data: products } = useProducts()
   return useMemo(() => {
-    const available = (products ?? []).filter((x) => x.available)
-    return [...available]
-      .sort((a, b) => Number(b.featured) - Number(a.featured))
+    return (products ?? [])
+      .filter((x) => x.available)
       .slice(0, 12)
       .map((x) => ({ id: x.id, name: x.name, description: x.description, price: x.basePrice, image: x.image }))
   }, [products])

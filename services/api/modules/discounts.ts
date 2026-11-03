@@ -6,18 +6,14 @@
  *    makes a coupon, without one a promotion. Switching between the two is not possible.
  *  - Percent values travel as basis points, fixed values and limits as minor units.
  *  - No DELETE exists: "remove" deactivates.
- *  - Weekday / time-of-day windows have no backend field, so a schedule that sets them is refused
- *    instead of silently running all day.
  *  - `used`: the offer DTOs carry no redemption count, so it comes from
  *    `GET /api/insights/reports/discounts` (completed orders per offer since the earliest start).
  *    It lags: open orders are not counted yet, and a cancellation releases coupon eligibility
  *    asynchronously (outbox), so the count need not drop right after a cancel. Without report
  *    access it reads 0. The POS "increment used" patch is a no-op; the server counts redemptions.
- *  - Deals (fixed-price combos) have no matching promotion kind (only percentage / fixed), so
- *    `deals` stays unavailable.
  */
 import { api } from '@/services/api/client'
-import { apiRepository, unavailableRepository, UnsupportedOperationError, versionOf, type Cached } from '@/services/api/adapter'
+import { apiRepository, UnsupportedOperationError, versionOf, type Cached } from '@/services/api/adapter'
 import { compact, fromMinor, localized, text, toMinor } from '@/services/api/mappers'
 import type {
   CouponResponseDto,
@@ -28,7 +24,7 @@ import type {
   UpdateCouponDto,
   UpdatePromotionDto,
 } from '@/services/api/generated/schemas'
-import type { Deal, Discount, PromoSchedule, SalesChannel } from '@/types'
+import type { Discount, SalesChannel } from '@/types'
 
 const tenantWide = { branchId: null } as const
 
@@ -107,18 +103,9 @@ const toUi = (d: OfferDto): Discount => {
     used: usedById.get(d.id) ?? 0,
     startDate: localDay(d.starts_at),
     endDate: d.ends_at ? localDay(d.ends_at) : null,
-    days: [],
-    startTime: '',
-    endTime: '',
     branchId: d.branch_ids.length === 1 ? d.branch_ids[0] : 'all',
     channel: channelFromWire(d.channels),
     active: d.is_active,
-  }
-}
-
-function assertSchedule(s: Partial<PromoSchedule>) {
-  if ((s.days && s.days.length) || s.startTime || s.endTime) {
-    throw new UnsupportedOperationError('Discounts', 'weekday or time-of-day limits')
   }
 }
 
@@ -200,7 +187,6 @@ export const discounts = apiRepository<Discount, OfferDto>({
   },
   get: load,
   create: async (input) => {
-    assertSchedule(input)
     const common = {
       name: localized(input.name),
       kind: input.kind === 'percent' ? ('percentage' as const) : ('fixed' as const),
@@ -233,7 +219,6 @@ export const discounts = apiRepository<Discount, OfferDto>({
       Object.entries(rest).filter(([k, v]) => v !== undefined && JSON.stringify(v) !== JSON.stringify(before[k as keyof Discount])),
     ) as Partial<Discount>
     if (!Object.keys(changes).length) return dto
-    assertSchedule(changes)
     if (changes.code !== undefined) {
       throw new UnsupportedOperationError('Discounts', dto.source === 'coupon' ? 'change a coupon code' : 'add a code to an automatic discount')
     }
@@ -254,5 +239,3 @@ export const discounts = apiRepository<Discount, OfferDto>({
     await patchOffer(id, { dto, ui: toUi(dto) }, { active: false })
   },
 })
-
-export const deals = unavailableRepository<Deal>('Deals')

@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
 import { BadgePercentIcon, GiftIcon, PlusIcon, TicketIcon, WalletIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -229,7 +228,7 @@ export default function DiscountsPage() {
       scope,
       targetId: targetId ?? null,
       usageLimit: Math.max(0, Math.round(Number(v.usageLimit) || 0)),
-      ...scheduleFromValues(v, current.days),
+      ...scheduleFromValues(v),
     } satisfies Omit<Discount, 'id' | 'used'>
   }
 
@@ -254,16 +253,10 @@ export default function DiscountsPage() {
         title={t('promo.discountsTitle')}
         description={t('promo.discountsSubtitle')}
         actions={
-          <>
-            <Button variant="outline" render={<Link href="/promotions/deals" />} nativeButton={false}>
-              <GiftIcon data-icon="inline-start" />
-              {t('nav.deals')}
-            </Button>
-            <Button onClick={() => setEditing('new')}>
-              <PlusIcon data-icon="inline-start" />
-              {t('promo.addDiscount')}
-            </Button>
-          </>
+          <Button onClick={() => setEditing('new')}>
+            <PlusIcon data-icon="inline-start" />
+            {t('promo.addDiscount')}
+          </Button>
         }
       />
       <div className="flex flex-col gap-4">
@@ -318,7 +311,7 @@ export default function DiscountsPage() {
         onOpenChange={(o) => !o && setEditing(null)}
         title={editing === 'new' ? t('promo.addDiscount') : t('common.edit')}
         fields={[
-          { name: 'name', label: t('common.name'), required: true, wide: true, placeholder: 'e.g. Burger happy hour' },
+          { name: 'name', label: t('common.name'), required: true, wide: true, placeholder: 'e.g. Burger week' },
           {
             name: 'kind',
             label: 'Type',
@@ -344,7 +337,7 @@ export default function DiscountsPage() {
           { name: 'maxAmount', label: 'Max discount, % only (0 = no cap)', type: 'number' },
           { name: 'code', label: 'Promo code (optional)', placeholder: 'e.g. WELCOME10' },
           { name: 'usageLimit', label: 'Usage limit (0 = unlimited)', type: 'number' },
-          ...scheduleFields(td, current.days),
+          ...scheduleFields(td),
         ]}
         initial={initial}
         onSubmit={save}
@@ -358,7 +351,7 @@ export default function DiscountsPage() {
               </p>
               <p className="mt-0.5 text-xs text-pretty text-muted-foreground">
                 {describeSchedule(d)} · {td(`channel.${d.channel}`)}
-                {d.code ? ` · code ${d.code}` : ' · applied by staff at the POS'}. Deals are never discounted again.
+                {d.code ? ` · code ${d.code}` : ' · applied by staff at the POS'}.
               </p>
             </div>
           )

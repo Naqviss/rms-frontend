@@ -92,8 +92,7 @@ export default function TablesPage() {
                     onClick={() => setSelectedId(tb.id)}
                     aria-pressed={selectedId === tb.id}
                     className={cn(
-                      'flex aspect-square flex-col items-center justify-center gap-1 border-2 text-center transition focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-                      tb.shape === 'round' ? 'rounded-full' : 'rounded-2xl',
+                      'flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border-2 text-center transition focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                       tone[tb.status],
                       selectedId === tb.id && 'ring-2 ring-foreground/70',
                     )}

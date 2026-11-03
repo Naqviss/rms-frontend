@@ -45,7 +45,6 @@ export default function RidersPage() {
     () => [
       { accessorKey: 'name', header: t('common.name'), cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
       { accessorKey: 'phone', header: t('common.phone') },
-      { accessorKey: 'vehicle', header: 'Vehicle', cell: ({ row }) => <span className="capitalize">{row.original.vehicle}</span> },
       { accessorKey: 'branchId', header: t('common.branch'), cell: ({ row }) => branchName(row.original.branchId) },
       { accessorKey: 'status', header: t('common.status'), cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       { accessorKey: 'deliveries', header: 'Deliveries', cell: ({ row }) => <span className="tabular-nums">{row.original.deliveries}</span> },

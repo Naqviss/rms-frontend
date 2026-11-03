@@ -14,7 +14,6 @@ import { Switch } from '@/components/ui/switch'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataTable } from '@/components/common/data-table'
 import { FormDialog, type FieldDef, type FormValues } from '@/components/common/form-dialog'
-import { OptionSelect } from '@/components/common/option-select'
 import { PageHeader } from '@/components/common/page-header'
 import { RowActions } from '@/components/common/row-actions'
 import { StatCard } from '@/components/common/stat-card'
@@ -29,21 +28,11 @@ import { registerCustomer, setMarketingConsent, type AddressInput } from '@/serv
 import type { CustomerAddressResponseDto } from '@/services/api/generated/schemas'
 import type { Customer } from '@/types'
 
-const segments: Customer['segment'][] = ['new', 'regular']
-
-const segmentVariant: Record<Customer['segment'], 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  vip: 'default',
-  regular: 'secondary',
-  new: 'outline',
-  'at-risk': 'destructive',
-}
-
 const DUPLICATE = 'CUSTOMER_POSSIBLE_DUPLICATE'
 
 export default function CustomersPage() {
   const { t } = useT()
   const { data, isLoading, update, mutate } = useCustomers()
-  const [segment, setSegment] = useState('all')
   const [editing, setEditing] = useState<Customer | 'new' | null>(null)
   const [viewing, setViewing] = useState<Customer | null>(null)
   /** Server error shown on the form; the dialog stays open with what was typed. */
@@ -51,7 +40,7 @@ export default function CustomersPage() {
   /** Client id for the customer being registered: a retry replays (duplicate: true) instead of creating twice. */
   const registerId = useRef<string | null>(null)
 
-  const rows = useMemo(() => (data ?? []).filter((c) => (segment === 'all' ? true : c.segment === segment)), [data, segment])
+  const rows = data ?? []
   const totals = useMemo(() => {
     const list = data ?? []
     return { count: list.length, active: list.filter((c) => c.accountStatus === 'active').length }
@@ -83,15 +72,6 @@ export default function CustomersPage() {
         ),
       },
       { accessorKey: 'email', header: t('common.email'), cell: ({ row }) => row.original.email || '-' },
-      {
-        accessorKey: 'segment',
-        header: t('customers.segment'),
-        cell: ({ row }) => (
-          <Badge variant={segmentVariant[row.original.segment]} className="capitalize">
-            {row.original.segment}
-          </Badge>
-        ),
-      },
       { accessorKey: 'registeredAt', header: 'Registered', cell: ({ row }) => (row.original.registeredAt ? formatDate(row.original.registeredAt) : '-') },
       { accessorKey: 'accountStatus', header: t('common.status'), cell: ({ row }) => <StatusBadge status={row.original.accountStatus} /> },
       {
@@ -184,16 +164,7 @@ export default function CustomersPage() {
         data={rows}
         isLoading={isLoading}
         exportName="customers"
-        exportRows={(r) => r.map((c) => ({ name: c.name, phone: c.phone, email: c.email, segment: c.segment, status: c.accountStatus }))}
-        filters={
-          <OptionSelect
-            className="h-9 w-40"
-            value={segment}
-            onValueChange={setSegment}
-            aria-label={t('customers.segment')}
-            options={[{ value: 'all', label: `${t('customers.segment')}: ${t('common.all')}` }, ...segments.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))]}
-          />
-        }
+        exportRows={(r) => r.map((c) => ({ name: c.name, phone: c.phone, email: c.email, status: c.accountStatus }))}
       />
       <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">

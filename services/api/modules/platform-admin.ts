@@ -68,18 +68,11 @@ function tenantStatus(d: PlatformTenantRow): Tenant['status'] {
 const toTenant = (d: PlatformTenantRow): Tenant => ({
   id: d.id,
   name: d.display_name,
-  // The platform tenant list has no owner, city or usage figures.
-  owner: '',
   email: d.contact_email ?? '',
   phone: d.contact_phone ?? '',
-  city: '',
-  branches: 0,
   plan: planTier(d.subscription),
   status: tenantStatus(d),
   registeredAt: day(d.created_at),
-  monthlyRevenue: 0,
-  usersCount: 0,
-  ordersThisMonth: 0,
   color: colorFor(d.id),
 })
 

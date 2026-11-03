@@ -18,7 +18,7 @@ import { RowActions } from '@/components/common/row-actions'
 import { StatusBadge } from '@/components/common/status-badge'
 import { useAppUsers, useRoles } from '@/hooks/use-data'
 import { useT } from '@/lib/i18n/use-t'
-import { formatDateTime, formatRelative, initials } from '@/lib/utils/format'
+import { formatDateTime, initials } from '@/lib/utils/format'
 import { branchName, currentBranchIds } from '@/lib/directory'
 import { useAuditLogs } from '@/hooks/use-platform'
 import type { AuditLogResponseDto } from '@/services/api/generated/schemas'
@@ -58,7 +58,6 @@ export default function UsersPage() {
         ),
       },
       { id: 'role', header: t('common.role'), accessorFn: (r) => roleName(r.role) },
-      { accessorKey: 'lastActive', header: t('users.lastActive'), cell: ({ row }) => (row.original.lastActive ? formatRelative(row.original.lastActive) : '—') },
       { accessorKey: 'status', header: t('common.status'), cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       {
         id: 'actions',
@@ -97,7 +96,7 @@ export default function UsersPage() {
       await update(editing.id, patch)
       toast.success(t('common.updated'))
     } else {
-      await create({ ...patch, branchIds: currentBranchIds, lastActive: '', color: '' })
+      await create({ ...patch, branchIds: currentBranchIds, color: '' })
       toast.success(t('users.invited'))
     }
   }

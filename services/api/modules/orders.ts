@@ -162,12 +162,6 @@ function toUi({ order: d, task, methods }: OrderRow): Order {
           foodpanda: {
             externalId: d.external_reference || d.external_order_id || '',
             acceptance,
-            // Commission, payout, prep time and the marketplace rider are not on the order.
-            prepMinutes: 0,
-            commissionRate: 0,
-            commission: 0,
-            netPayout: 0,
-            riderName: null,
             ...(d.status === 'rejected' && d.status_reason_code ? { rejectReason: d.status_reason_code } : {}),
           },
         }
@@ -636,10 +630,6 @@ export const tables = apiRepository<DiningTable, DiningTableResponseDto>({
     number: tableNumber(d),
     capacity: d.seats,
     status: tableStatusToUi[d.status],
-    // No floor-plan geometry in the API.
-    x: 0,
-    y: 0,
-    shape: 'square',
     orderId: d.current_order_id ?? null,
   }),
   create: (input) => {

@@ -52,12 +52,7 @@ export function toBranch(b: BranchResponseDto, tenantId: string): Branch {
     city: b.city ?? '',
     address: [b.address_line1, b.address_line2].filter(Boolean).join(', '),
     phone: b.phone ?? '',
-    email: '',
-    manager: '',
-    opensAt: '',
-    closesAt: '',
     status: b.status === 'active' && b.is_open ? 'open' : 'closed',
-    seats: 0,
   }
 }
 

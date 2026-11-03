@@ -54,7 +54,6 @@ export default function StockMovementsPage() {
         ),
       },
       { accessorKey: 'branchId', header: t('common.branch'), cell: ({ row }) => branchName(row.original.branchId) },
-      { accessorKey: 'by', header: 'By' },
       { accessorKey: 'note', header: t('common.notes'), cell: ({ row }) => <span className="text-muted-foreground">{row.original.note || '-'}</span> },
     ],
     [t],

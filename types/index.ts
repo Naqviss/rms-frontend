@@ -9,17 +9,11 @@ export type TenantStatus = 'active' | 'suspended' | 'trial'
 
 export interface Tenant extends Entity {
   name: string
-  owner: string
   email: string
   phone: string
-  city: string
-  branches: number
   plan: PlanId
   status: TenantStatus
   registeredAt: string
-  monthlyRevenue: number
-  usersCount: number
-  ordersThisMonth: number
   color: string
 }
 
@@ -29,12 +23,7 @@ export interface Branch extends Entity {
   city: string
   address: string
   phone: string
-  email: string
-  manager: string
-  opensAt: string
-  closesAt: string
   status: 'open' | 'closed'
-  seats: number
 }
 
 export interface MenuCategory extends Entity {
@@ -59,8 +48,6 @@ export interface ProductOptionGroup {
   options: ProductOption[]
 }
 
-export type DietaryLabel = 'halal' | 'vegetarian' | 'spicy' | 'gluten-free'
-
 export interface Product extends Entity {
   name: string
   sku: string
@@ -68,17 +55,11 @@ export interface Product extends Entity {
   description: string
   image: string
   basePrice: number
-  costPrice: number
   /** Tax rate from Tax Management; whether it sits inside the price or on top follows that rate's `inclusive`. Null when untaxed. */
   taxRateId: ID | null
   available: boolean
-  featured: boolean
-  dietary: DietaryLabel[]
   optionGroups: ProductOptionGroup[]
-  ingredients: string[]
-  branchIds: ID[]
   menuId: ID
-  schedule: 'all-day' | 'breakfast' | 'lunch' | 'dinner'
 }
 
 export interface MenuGroup extends Entity {
@@ -92,16 +73,12 @@ export type StockStatus = 'in-stock' | 'low' | 'out' | 'expiring'
 export interface InventoryItem extends Entity {
   name: string
   sku: string
-  category: string
   quantity: number
   unit: string
   minStock: number
   costPerUnit: number
   branchId: ID
   vendorId: ID
-  expiryDate: string | null
-  kind: 'ingredient' | 'raw-material' | 'packaging'
-  image: string
 }
 
 export type MovementType = 'purchase' | 'consumption' | 'adjustment' | 'transfer' | 'wastage'
@@ -115,41 +92,16 @@ export interface StockMovement extends Entity {
   branchId: ID
   date: string
   note: string
-  by: string
 }
 
 export interface Vendor extends Entity {
   name: string
-  category: string
   contactPerson: string
   phone: string
   email: string
   address: string
-  outstanding: number
-  rating: number
-  onTimeRate: number
   status: 'active' | 'inactive'
   color: string
-}
-
-export type PurchaseOrderStatus = 'draft' | 'sent' | 'received' | 'cancelled'
-
-export interface PurchaseOrder extends Entity {
-  vendorId: ID
-  vendorName: string
-  items: { itemId: ID; name: string; quantity: number; unit: string; unitCost: number }[]
-  total: number
-  status: PurchaseOrderStatus
-  createdAt: string
-  branchId: ID
-}
-
-export interface VendorPayment extends Entity {
-  vendorId: ID
-  amount: number
-  date: string
-  method: PaymentMethod
-  reference: string
 }
 
 export type OrderType = 'dine-in' | 'takeaway' | 'delivery' | 'online'
@@ -198,7 +150,6 @@ export type RiderStatus = 'available' | 'on-delivery' | 'off-duty'
 export interface Rider extends Entity {
   name: string
   phone: string
-  vehicle: 'bike' | 'scooter' | 'car'
   branchId: ID
   status: RiderStatus
 }
@@ -208,11 +159,6 @@ export type FoodpandaAcceptance = 'awaiting' | 'accepted' | 'rejected'
 export interface FoodpandaInfo {
   externalId: string
   acceptance: FoodpandaAcceptance
-  prepMinutes: number
-  commissionRate: number
-  commission: number
-  netPayout: number
-  riderName: string | null
   rejectReason?: string
 }
 
@@ -259,9 +205,6 @@ export interface DiningTable extends Entity {
   label?: string
   capacity: number
   status: TableStatus
-  x: number
-  y: number
-  shape: 'round' | 'square' | 'wide'
   orderId: ID | null
 }
 
@@ -269,17 +212,9 @@ export interface Customer extends Entity {
   name: string
   phone: string
   email: string
-  city: string
   registeredAt: string
-  totalOrders: number
-  totalSpent: number
-  loyaltyPoints: number
-  lastVisit: string
-  segment: 'vip' | 'regular' | 'new' | 'at-risk'
-  authMethod: 'phone-otp' | 'email' | 'google' | 'walk-in'
   accountStatus: 'active' | 'blocked'
   notes: string
-  favoriteItems: string[]
   color: string
 }
 
@@ -294,7 +229,6 @@ export type EmployeeRole =
   | 'accountant'
 
 export type PayType = 'monthly' | 'daily' | 'hourly'
-export type CommissionType = 'none' | 'per-order' | 'percentage'
 
 export interface Employee extends Entity {
   code: string
@@ -306,13 +240,8 @@ export interface Employee extends Entity {
   joinedAt: string
   payType: PayType
   payRate: number
-  commissionType: CommissionType
-  commissionRate: number
   status: 'active' | 'on-leave' | 'inactive'
   shift: 'morning' | 'evening' | 'night'
-  attendanceRate: number
-  performance: number
-  ordersHandled: number
   color: string
 }
 
@@ -328,13 +257,10 @@ export interface Transaction extends Entity {
   date: string
   branchId: ID
   status: 'completed' | 'pending'
-  channel?: SalesChannel
   /** Who was paid (vendor, landlord, utility company...). */
   payee?: string
   /** Set when the expense was recorded from a recurring schedule. */
   recurringId?: ID
-  /** Sales tax collected inside `amount` (income only). */
-  tax?: number
 }
 
 export type RecurringFrequency = 'weekly' | 'monthly' | 'quarterly'
@@ -352,86 +278,11 @@ export interface RecurringExpense extends Entity {
   active: boolean
 }
 
-export interface ExpenseBudget extends Entity {
-  category: string
-  /** Monthly limit across all branches. */
-  monthly: number
-}
-
-/** One ingredient used to make a single serving of a menu item. */
-export interface RecipeIngredient {
-  id: ID
-  /** Inventory SKU; when set the cost follows the current stock price. */
-  sku: string | null
-  name: string
-  quantity: number
-  unit: string
-  /** Price per `unit` for ingredients that are not tracked in inventory. */
-  costPerUnit: number
-  /** Only recipe owners see what this is; everyone else sees a code name and the quantity. */
-  secret?: boolean
-}
-
-export interface RecipeStep {
-  id: ID
-  text: string
-  /** Minutes this step takes; 0 when it is not timed. */
-  minutes: number
-}
-
-/** Who besides the recipe owners can open the kitchen card. */
-export type RecipeVisibility = 'owner' | 'managers' | 'kitchen'
-
-/** A non-ingredient cost spent on every serving: packaging, gas, labour minutes and so on. */
-export interface RecipeExtra {
-  id: ID
-  label: string
-  amount: number
-}
-
-/** Costing sheet for one menu item. The record id equals the product id. */
-export interface Recipe extends Entity {
-  productId: ID
-  ingredients: RecipeIngredient[]
-  extras: RecipeExtra[]
-  /** Buffer for trimming, spillage and spoilage, as a percentage of ingredient cost. */
-  wastagePct: number
-  notes: string
-  updatedAt: string
-  // Recipe book fields. Sheets created from Item Costing do not have them yet.
-  method?: RecipeStep[]
-  prepMinutes?: number
-  cookMinutes?: number
-  /** Servings the kitchen usually cooks in one go; the kitchen card scales to it. */
-  batchServings?: number
-  allergens?: string[]
-  visibility?: RecipeVisibility
-  version?: number
-  updatedBy?: string
-}
-
-export type RecipeAccessAction = 'viewed' | 'edited' | 'printed' | 'unlocked' | 'unlock-failed'
-
-/** One line of the recipe access log: who looked at or changed which recipe, and when. */
-export interface RecipeAccessEvent extends Entity {
-  recipeId: ID | null
-  itemName: string
-  userName: string
-  role: RoleId
-  action: RecipeAccessAction
-  at: string
-}
-
 /** When a discount or deal can be used. Empty values mean "no restriction". */
 export interface PromoSchedule {
   /** yyyy-mm-dd, inclusive. */
   startDate: string
   endDate: string | null
-  /** Weekdays it runs on (0 = Sunday). Empty = every day. */
-  days: number[]
-  /** "HH:mm" window, e.g. a 15:00-18:00 happy hour. Both empty = all day. */
-  startTime: string
-  endTime: string
   branchId: ID | 'all'
   channel: SalesChannel | 'all'
   active: boolean
@@ -457,22 +308,6 @@ export interface Discount extends Entity, PromoSchedule {
   /** 0 = unlimited. */
   usageLimit: number
   used: number
-}
-
-export interface DealItem {
-  productId: ID
-  quantity: number
-}
-
-/** A combo of menu items sold together at one price. */
-export interface Deal extends Entity, PromoSchedule {
-  name: string
-  description: string
-  image: string
-  items: DealItem[]
-  price: number
-  featured: boolean
-  sold: number
 }
 
 export interface TaxRate extends Entity {
@@ -524,7 +359,6 @@ export interface SyncRecord extends Entity {
   description: string
   status: SyncStatus
   createdAt: string
-  attempts: number
   error?: string
 }
 
@@ -545,7 +379,6 @@ export interface AppUser extends Entity {
   role: RoleId
   branchIds: ID[]
   status: 'active' | 'inactive' | 'invited'
-  lastActive: string
   color: string
 }
 

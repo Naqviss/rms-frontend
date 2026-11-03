@@ -51,7 +51,7 @@ function stageOf(o: Order): DeliveryStatus {
   if (o.delivery) return o.delivery.status
   if (o.status === 'completed') return 'delivered'
   if (o.status === 'out-for-delivery') return 'picked-up'
-  return o.foodpanda?.riderName ? 'assigned' : 'unassigned'
+  return 'unassigned'
 }
 
 export default function DeliveryBoardPage() {
@@ -241,7 +241,7 @@ function DeliveryCard({
   const [zoneId, setZoneId] = useState('auto')
   const d = order.delivery
   const channel = channelOf(order)
-  const riderName = d?.riderName ?? order.foodpanda?.riderName ?? null
+  const riderName = d?.riderName ?? null
   return (
     <Card className="gap-3 py-4">
       <CardContent className="flex flex-col gap-3 px-4 text-sm">

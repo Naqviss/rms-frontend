@@ -13,11 +13,9 @@
  * what the backend exposes: expenses → `expense`; branch payments → `income` (pending until
  * captured); each payment refund → `refund`. Only expense rows can be written; income and refunds
  * are recorded by the POS (orders/payments) and are read-only here.
- *
- * Budgets have no backend API and stay unavailable.
  */
 import { api, operationId } from '@/services/api/client'
-import { acrossBranches, apiRepository, unavailableRepository, UnsupportedOperationError, versionOf, type Cached } from '@/services/api/adapter'
+import { acrossBranches, apiRepository, UnsupportedOperationError, versionOf, type Cached } from '@/services/api/adapter'
 import { compact, fromMinor, localized, stamp, text, toMinor } from '@/services/api/mappers'
 import type {
   CashAccountResponseDto,
@@ -36,7 +34,7 @@ import type {
   VendorResponseDto,
   VoidExpenseDto,
 } from '@/services/api/generated/schemas'
-import type { ExpenseBudget, PaymentMethod, RecurringExpense, RecurringFrequency, Transaction } from '@/types'
+import type { PaymentMethod, RecurringExpense, RecurringFrequency, Transaction } from '@/types'
 
 type ApiMethod = NonNullable<ExpenseResponseDto['payment_method']>
 
@@ -372,5 +370,3 @@ export const recurringExpenses = apiRepository<RecurringExpense, RecurringExpens
   },
 })
 
-/** Monthly category budgets have no backend API. */
-export const budgets = unavailableRepository<ExpenseBudget>('budgets')

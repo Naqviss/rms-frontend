@@ -100,7 +100,6 @@ export const appNav: NavGroup[] = [
         minPlan: 'professional',
         children: [
           { href: '/vendors', label: 'nav.vendorList' },
-          { href: '/vendors/restock', label: 'nav.purchaseOrders' },
         ],
       },
       { href: '/menu', label: 'nav.menu', icon: UtensilsCrossed, module: 'menu' },
@@ -111,10 +110,8 @@ export const appNav: NavGroup[] = [
         module: 'menu',
         children: [
           { href: '/promotions', label: 'nav.discounts' },
-          { href: '/promotions/deals', label: 'nav.deals' },
         ],
       },
-      { href: '/recipes', label: 'nav.recipes', icon: BookLock, module: 'recipes', minPlan: 'professional' },
     ],
   },
   {
@@ -141,11 +138,8 @@ export const appNav: NavGroup[] = [
         minPlan: 'professional',
         children: [
           { href: '/finance', label: 'nav.financeOverview' },
-          { href: '/finance/channels', label: 'nav.channels' },
           { href: '/finance/transactions', label: 'nav.transactions' },
           { href: '/finance/expenses', label: 'nav.expenses' },
-          { href: '/finance/item-profit', label: 'nav.itemProfit' },
-          { href: '/finance/costing', label: 'nav.costing' },
           { href: '/finance/closing', label: 'nav.dailyClosing' },
         ],
       },

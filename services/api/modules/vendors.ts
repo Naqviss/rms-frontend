@@ -6,11 +6,9 @@
  *  - Contacts cannot be edited: changing the contact person adds a new primary contact and
  *    removes the previous one.
  *  - No DELETE exists: "remove" deactivates the vendor.
- *  - Category, outstanding balance, rating and on-time rate have no backend source.
- *  - Purchase orders and vendor payments have no API, so those stay unavailable.
  */
 import { api } from '@/services/api/client'
-import { apiRepository, unavailableRepository, UnsupportedOperationError, versionOf } from '@/services/api/adapter'
+import { apiRepository, UnsupportedOperationError, versionOf } from '@/services/api/adapter'
 import { colorFor, compact } from '@/services/api/mappers'
 import type {
   CreateVendorContactDto,
@@ -20,7 +18,7 @@ import type {
   VendorItemResponseDto,
   VendorResponseDto,
 } from '@/services/api/generated/schemas'
-import type { PurchaseOrder, Vendor, VendorPayment } from '@/types'
+import type { Vendor } from '@/types'
 
 const tenantWide = { branchId: null } as const
 
@@ -70,19 +68,15 @@ const primaryContact = (d: VendorResponseDto) => d.contacts?.find((c) => c.is_pr
 const toUi = (d: VendorResponseDto): Vendor => ({
   id: d.id,
   name: d.name,
-  category: '',
   contactPerson: primaryContact(d)?.name ?? '',
   phone: d.phone ?? '',
   email: d.email ?? '',
   address: d.address ?? '',
-  outstanding: 0,
-  rating: 0,
-  onTimeRate: 0,
   status: d.is_active ? 'active' : 'inactive',
   color: colorFor(d.id),
 })
 
-const VENDOR_LOCAL: (keyof Vendor)[] = ['category', 'outstanding', 'rating', 'onTimeRate', 'color']
+const VENDOR_LOCAL: (keyof Vendor)[] = ['color']
 
 async function addPrimaryContact(vendorId: string, name: string) {
   const body: CreateVendorContactDto = { name, is_primary: true }
@@ -141,6 +135,3 @@ export const vendors = apiRepository<Vendor, VendorResponseDto>({
     invalidate()
   },
 })
-
-export const purchaseOrders = unavailableRepository<PurchaseOrder>('Purchase orders')
-export const vendorPayments = unavailableRepository<VendorPayment>('Vendor payments')

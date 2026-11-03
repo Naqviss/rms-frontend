@@ -7,9 +7,8 @@
  *    records) plus, when the item has variants, one synthetic single-choice group whose option
  *    prices are relative to the base price (variant prices are absolute on the wire).
  *  - The API has no DELETE for menus, categories or items, so "remove" deactivates.
- *  - Fields the backend does not store (cost price, featured, dietary, ingredients, schedule,
- *    image URL) read as neutral defaults and are not written. A patch that only changes such
- *    fields is rejected with UnsupportedOperationError rather than silently dropped.
+ *  - Fields the backend does not store (image URL) read as empty and are not written. A patch that
+ *    only changes such fields is rejected with UnsupportedOperationError rather than silently dropped.
  */
 import { api } from '@/services/api/client'
 import { apiRepository, UnsupportedOperationError, versionOf } from '@/services/api/adapter'
@@ -186,21 +185,14 @@ const productToUi = (d: ItemResponseDto): Product => ({
   description: d.description ?? text(d.description_i18n),
   image: '',
   basePrice: fromMinor(d.base_price_minor),
-  costPrice: 0,
   taxRateId: taxRateIdOf(d),
   available: d.is_active,
-  featured: false,
-  dietary: [],
   optionGroups: optionGroupsOf(d),
-  ingredients: [],
-  // Empty = offered in every branch (per-branch availability overrides have no read endpoint).
-  branchIds: [],
   menuId: menuOfCategory.get(d.category_id) ?? '',
-  schedule: 'all-day',
 })
 
 /** Fields the menu item API does not store. Changing only these is reported as unsupported. */
-const PRODUCT_LOCAL: (keyof Product)[] = ['costPrice', 'featured', 'dietary', 'ingredients', 'schedule', 'image', 'branchIds', 'menuId', 'taxRateId']
+const PRODUCT_LOCAL: (keyof Product)[] = ['image', 'menuId', 'taxRateId']
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 

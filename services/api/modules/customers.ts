@@ -4,7 +4,7 @@
  *
  *  - The directory is tenant-wide (X-Branch-Id optional), so calls go without a branch header.
  *  - Lists carry no order statistics; `customerDetail()` reads the completed-order summary for
- *    one customer (used by the profile sheet). List rows show 0 orders / 0 spent.
+ *    one customer (used by the profile sheet).
  *  - "Blocked" is the backend's `inactive` status. There is no DELETE: remove is unsupported
  *    (block the customer instead).
  *  - Loyalty, segments by spend, favourites, auth method and city are not modelled by the API.
@@ -24,25 +24,14 @@ import type {
 } from '@/services/api/generated/schemas'
 import type { Customer } from '@/types'
 
-const NEW_FOR_DAYS = 30
-
 const toUi = (d: CustomerResponseDto): Customer => ({
   id: d.id,
   name: d.display_name,
   phone: d.phone ?? '',
   email: d.email ?? '',
-  city: '',
   registeredAt: day(d.created_at),
-  totalOrders: 0,
-  totalSpent: 0,
-  loyaltyPoints: 0,
-  lastVisit: '',
-  // Only "new" is derivable (registration date); spend-based segments need order statistics.
-  segment: Date.now() - new Date(d.created_at).getTime() < NEW_FOR_DAYS * 86_400_000 ? 'new' : 'regular',
-  authMethod: 'walk-in',
   accountStatus: d.status === 'active' ? 'active' : 'blocked',
   notes: d.notes ?? '',
-  favoriteItems: [],
   color: colorFor(d.id),
 })
 

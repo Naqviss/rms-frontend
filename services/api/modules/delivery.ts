@@ -5,8 +5,7 @@
  *  - The delivery API assigns a task to `driver_employee_id` ("an employee of the branch"), so a
  *    rider is an active/inactive staff employee whose designation reads as a rider/driver.
  *  - Rider status is derived: inactive → off-duty, holding an assigned / picked-up / on-the-way
- *    task → on-delivery, otherwise available. The API has no rider availability flag to write,
- *    and no vehicle field (neutral default `bike`).
+ *    task → on-delivery, otherwise available. The API has no rider availability flag to write.
  *  - Tasks also feed `Order.delivery` (see orders.ts), so their mapping lives here.
  */
 import { api } from '@/services/api/client'
@@ -152,7 +151,6 @@ export const riders = apiRepository<Rider, RiderRow>({
     id: e.id,
     name: e.full_name,
     phone: e.phone ?? '',
-    vehicle: 'bike',
     branchId: e._branchId,
     status: e.status !== 'active' ? 'off-duty' : e._busy ? 'on-delivery' : 'available',
   }),

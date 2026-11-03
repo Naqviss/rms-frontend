@@ -164,8 +164,6 @@ const toUser = (d: MemberResponseDto): AppUser => ({
   role: primaryRole(d) as RoleId,
   branchIds: d.all_branches ? [...currentBranchIds] : d.branch_ids,
   status: memberStatus[d.status],
-  // The API has no last-activity timestamp.
-  lastActive: '',
   color: colorFor(d.user_id),
 })
 
@@ -431,8 +429,6 @@ const toSyncRecord = (c: ConflictRow): SyncRecord => ({
   description: [c.type, c.entity_id].filter(Boolean).join(' · '),
   status: c.resolved ? 'synced' : c.status === 'conflict' ? 'conflict' : 'failed',
   createdAt: stamp(c.received_at),
-  // Retry counts are kept on the device, not reported to the server.
-  attempts: 0,
   error: outcomeText(c.outcome),
 })
 

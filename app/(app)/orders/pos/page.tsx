@@ -64,10 +64,9 @@ export default function PosPage() {
   const visible = useMemo(
     () =>
       (products ?? [])
-        .filter((p) => p.branchIds.includes(activeBranch) || p.branchIds.length === 0)
         .filter((p) => (category === 'all' ? true : p.categoryId === category))
         .filter((p) => p.name.toLowerCase().includes(query.toLowerCase())),
-    [products, activeBranch, category, query],
+    [products, category, query],
   )
 
   const freeTables = (tables ?? []).filter((x) => x.branchId === activeBranch && x.status === 'available')
