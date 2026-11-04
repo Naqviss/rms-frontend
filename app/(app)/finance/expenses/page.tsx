@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
-import { AlertTriangleIcon, BanknoteIcon, CalendarClockIcon, ClockIcon, PercentIcon, PlusIcon, ReceiptTextIcon, RepeatIcon, TagsIcon, TrophyIcon } from 'lucide-react'
+import { AlertTriangleIcon, BanknoteIcon, CalendarClockIcon, PiggyBankIcon, ClockIcon, PercentIcon, PlusIcon, ReceiptTextIcon, RepeatIcon, TagsIcon, TrophyIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +24,7 @@ import { CashPanel } from '@/components/expenses/cash-panel'
 import { CategoriesPanel } from '@/components/expenses/categories-panel'
 import { useRecurringExpenses, useTransactions } from '@/hooks/use-data'
 import { useAccess } from '@/hooks/use-access'
-import { presetWindow, sumMinor, todayIso, useExpenseCategories, useInsightsReport } from '@/hooks/use-insights'
+import { presetWindow, sumMinor, todayIso, useExpenseCategories, useExpenseSummary, useInsightsReport } from '@/hooks/use-insights'
 import { useScope } from '@/hooks/use-scope'
 import { useT } from '@/lib/i18n/use-t'
 import { cn } from '@/lib/utils'
@@ -45,7 +45,9 @@ export default function ExpensesPage() {
   const { can } = useAccess()
   const TODAY = todayIso()
   const window = useMemo(() => presetWindow(preset, TODAY), [preset, TODAY])
-  // Server totals: the period's expenses and sales for the ratio.
+  const monthWindow = useMemo(() => presetWindow('month', TODAY), [TODAY])
+  // Server totals: this month's spend (expense summary), and the period's expenses and sales for the ratio.
+  const monthSummary = useExpenseSummary('month', monthWindow)
   const periodExpenses = useInsightsReport('expenses', window)
   const periodSales = useInsightsReport('sales', window)
   const { data: apiCategories } = useExpenseCategories()
@@ -99,8 +101,9 @@ export default function ExpensesPage() {
   // Pending bills are about the whole ledger, not the top-bar range.
   const month = useMemo(() => {
     const pending = branchTx.filter((x) => x.type === 'expense' && x.status === 'pending')
-    return { pending, pendingTotal: pending.reduce((s, x) => s + x.amount, 0) }
-  }, [branchTx])
+    const spent = monthSummary.data ? sumMinor(monthSummary.data.totals, (r) => r.total_minor, monthSummary.currency) : null
+    return { pending, pendingTotal: pending.reduce((s, x) => s + x.amount, 0), spent }
+  }, [branchTx, monthSummary.data, monthSummary.currency])
 
   const activeRecurring = (recurring ?? []).filter((r) => r.active && (allBranches || branchIds.includes(r.branchId)))
   const dueSoon = activeRecurring.filter((r) => daysUntil(r.nextDue, TODAY) <= 7)
@@ -270,8 +273,8 @@ export default function ExpensesPage() {
 
       {isLoading ? (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-            {Array.from({ length: 3 }, (_, i) => (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
               <Skeleton key={i} className="h-28" />
             ))}
           </div>
@@ -279,7 +282,14 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard
+              label="Spent this month"
+              value={month.spent === null ? '—' : formatCompactCurrency(month.spent)}
+              icon={PiggyBankIcon}
+              tone="primary"
+              hint="Expense summary, all categories"
+            />
             <StatCard
               label={t('expenses.pending')}
               value={formatCompactCurrency(month.pendingTotal)}

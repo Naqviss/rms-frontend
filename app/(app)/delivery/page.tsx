@@ -9,7 +9,6 @@ import {
   HourglassIcon,
   MapPinIcon,
   PackageCheckIcon,
-  PhoneIcon,
   SettingsIcon,
   TruckIcon,
   type LucideIcon,
@@ -258,19 +257,13 @@ function DeliveryCard({
                 <MapPinIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 <span className="text-pretty">{d.address}</span>
               </p>
-              {d.phone && (
-                <p className="mt-1 flex items-center gap-1.5 text-muted-foreground">
-                  <PhoneIcon className="size-3.5 shrink-0" aria-hidden />
-                  {d.phone}
-                </p>
-              )}
             </>
           )}
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           {d ? (
             <>
-              <span>{d.distanceKm > 0 ? `${d.distanceKm.toFixed(1)} km` : d.etaMinutes > 0 ? `~${d.etaMinutes} min` : d.area}</span>
+              <span>{d.etaMinutes > 0 ? `~${d.etaMinutes} min` : d.area}</span>
               <span>{formatCurrency(d.fee)}</span>
             </>
           ) : order.foodpanda ? (

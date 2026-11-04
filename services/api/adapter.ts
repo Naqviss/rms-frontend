@@ -118,19 +118,3 @@ export function scopeKey(): string {
   return `${apiScope.tenantId ?? ''}|${scopeBranchIds().join(',')}`
 }
 
-/**
- * Placeholder for a UI resource the backend has no API for. Lists are empty and writes fail with
- * a clear message, so live mode never shows seeded demo data as if it were real.
- */
-export function unavailableRepository<T extends Entity>(name: string): Repository<T> {
-  const fail = () => Promise.reject(new UnsupportedOperationError(name, 'this feature'))
-  return {
-    list: async () => [],
-    get: async () => undefined,
-    create: fail,
-    update: fail,
-    remove: fail,
-    replaceAll: fail,
-    reset: async () => undefined,
-  }
-}

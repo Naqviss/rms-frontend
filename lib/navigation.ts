@@ -1,7 +1,6 @@
 import {
   Bike,
   BarChart3,
-  BookLock,
   Building2,
   Globe,
   LayoutDashboard,

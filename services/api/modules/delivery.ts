@@ -53,14 +53,12 @@ const minutesBetween = (from: string, to: string | null | undefined) => {
   return m > 0 ? m : undefined
 }
 
-/** Task → the order card's delivery block. Phone and distance are not on the task. */
+/** Task → the order card's delivery block. */
 export function toDeliveryInfo(t: DeliveryTaskResponseDto): DeliveryInfo {
   return {
     address: addressLine(t.address),
     area: t.address?.area ?? t.address?.postal_code ?? '',
-    phone: '',
     fee: fromMinor(t.fee_minor),
-    distanceKm: 0,
     etaMinutes: t.estimated_minutes ?? 0,
     status: taskStatusToUi[t.status],
     riderId: t.driver_employee_id ?? null,

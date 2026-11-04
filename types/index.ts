@@ -68,7 +68,7 @@ export interface MenuGroup extends Entity {
   active: boolean
 }
 
-export type StockStatus = 'in-stock' | 'low' | 'out' | 'expiring'
+export type StockStatus = 'in-stock' | 'low' | 'out'
 
 export interface InventoryItem extends Entity {
   name: string
@@ -124,8 +124,6 @@ export interface OrderItem {
   unitPrice: number
   /** Names of the chosen options, e.g. ["Double patty", "Extra cheese"]. */
   options?: string[]
-  /** Set when the line is a deal; `productId` then holds the deal id. */
-  dealId?: ID
 }
 
 export type SalesChannel = 'dine-in' | 'takeaway' | 'own-delivery' | 'foodpanda' | 'website'
@@ -135,9 +133,7 @@ export type DeliveryStatus = 'unassigned' | 'assigned' | 'picked-up' | 'delivere
 export interface DeliveryInfo {
   address: string
   area: string
-  phone: string
   fee: number
-  distanceKm: number
   etaMinutes: number
   status: DeliveryStatus
   riderId: ID | null
@@ -165,8 +161,6 @@ export interface FoodpandaInfo {
 export interface WebsiteInfo {
   fulfillment: 'delivery' | 'pickup'
   acceptance: FoodpandaAcceptance
-  /** Not provided by the API. */
-  device?: 'mobile' | 'desktop' | null
   promoCode?: string
 }
 

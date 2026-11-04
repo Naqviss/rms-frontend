@@ -58,14 +58,13 @@ export function describeDiscount(d: Pick<Discount, 'kind' | 'value' | 'maxAmount
 }
 
 /**
- * What a discount takes off a cart. Deal lines are already discounted, so they never count towards it.
+ * What a discount takes off a cart.
  * `reason` explains a zero amount (nothing qualifying, or below the minimum spend).
  */
 export function discountFor(d: Discount, lines: OrderItem[], products: Product[]) {
   const categoryOf = new Map(products.map((p) => [p.id, p.categoryId]))
   const covered = lines.filter(
     (l) =>
-      !l.dealId &&
       (d.scope === 'order' || (d.scope === 'product' ? l.productId === d.targetId : categoryOf.get(l.productId) === d.targetId)),
   )
   const base = covered.reduce((s, l) => s + l.quantity * l.unitPrice, 0)

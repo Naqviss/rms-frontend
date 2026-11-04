@@ -171,7 +171,6 @@ function toUi({ order: d, task, methods }: OrderRow): Order {
           website: {
             fulfillment: d.service_type === 'delivery' ? 'delivery' : 'pickup',
             acceptance,
-            device: 'desktop' as const,
             ...(coupon ? { promoCode: coupon.code } : {}),
           },
         }
@@ -331,8 +330,6 @@ const optionNames = (x: { name?: string | null; short_name?: string | null; name
  * from the cart are resolved to the branch catalog's variant / modifier ids.
  */
 async function toOrderLines(branchId: string, items: OrderItem[]): Promise<OrderLineInputDto[]> {
-  const deal = items.find((i) => i.dealId)
-  if (deal) throw new Error(`"${deal.name}" is a deal; deals cannot be sold through the RMS API yet`)
   let catalog: Map<string, CatalogItemDto> | null = null
   const loadCatalog = async () => {
     if (catalog) return catalog

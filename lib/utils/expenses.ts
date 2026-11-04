@@ -60,14 +60,6 @@ export function monthProgress(today: string) {
   }
 }
 
-export type BudgetState = 'ok' | 'near' | 'over'
-
-export function budgetState(spent: number, budget: number): BudgetState {
-  if (budget <= 0) return 'ok'
-  const ratio = spent / budget
-  return ratio > 1 ? 'over' : ratio >= 0.85 ? 'near' : 'ok'
-}
-
 /** Total a schedule still has to bill up to and including `to`. Overdue bills count: they are unpaid until recorded. */
 export function scheduledUntil(r: Pick<RecurringExpense, 'amount' | 'frequency' | 'nextDue'>, to: string) {
   let total = 0
